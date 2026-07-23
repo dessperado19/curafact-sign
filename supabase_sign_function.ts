@@ -1,0 +1,64 @@
+// CuraFact Fernunterschrift - liefert die Unterschriften-Seite als echtes HTML
+// (Supabase Storage kann das nicht, siehe app.py fuer Details) und laedt die
+// unterschriebene PNG direkt in den curafact-sign Bucket hoch.
+Deno.serve(async (req) => {
+  const url = new URL(req.url);
+  const token = url.searchParams.get('t') || '';
+  const label = (url.searchParams.get('l') || 'Unterschrift').replace(/[<>]/g, '');
+  const SUPA_URL = Deno.env.get('SUPABASE_URL') || '';
+  const SUPA_KEY = Deno.env.get('SUPABASE_ANON_KEY') || '';
+  const SUPA_BUCKET = 'curafact-sign';
+
+  const html = `<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Unterschrift - CuraFact</title>
+<style>
+html,body{margin:0;height:100%;background:#0b1f3a;font-family:-apple-system,sans-serif;display:flex;flex-direction:column;color:#fff;overflow:hidden}
+h1{font-size:18px;text-align:center;margin:14px 10px 4px}
+p{text-align:center;color:#9fb3d1;margin:0 10px 10px;font-size:13px}
+canvas{flex:1;background:#fff;touch-action:none;display:block;margin:0 10px;border-radius:12px;min-height:0}
+.bar{display:flex;gap:10px;padding:14px}
+button{flex:1;padding:16px;border:0;border-radius:10px;font-size:16px;font-weight:600}
+#clearBtn{background:#334766;color:#fff}
+#okBtn{background:#1f8f4d;color:#fff}
+#msg{text-align:center;padding:6px;font-size:14px;min-height:18px}
+</style></head><body>
+<h1>Bitte hier unterschreiben</h1>
+<p id="lbl">${label}</p>
+<canvas id="c"></canvas>
+<div id="msg"></div>
+<div class="bar"><button id="clearBtn" type="button">Löschen</button><button id="okBtn" type="button">Fertig</button></div>
+<script>
+const SUPA_URL='${SUPA_URL}', SUPA_KEY='${SUPA_KEY}', SUPA_BUCKET='${SUPA_BUCKET}', TOKEN='${token}';
+const c=document.getElementById('c'),ctx=c.getContext('2d');
+function resize(){const r=c.getBoundingClientRect();c.width=r.width*2;c.height=r.height*2;ctx.scale(2,2);ctx.lineWidth=2.5;ctx.lineCap='round';ctx.strokeStyle='#0b1f3a'}
+resize();
+let drawing=false,has=false;
+function pos(e){const r=c.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return {x:t.clientX-r.left,y:t.clientY-r.top}}
+function start(e){drawing=true;has=true;const p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);e.preventDefault()}
+function move(e){if(!drawing)return;const p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();e.preventDefault()}
+function end(e){drawing=false;if(e)e.preventDefault()}
+c.addEventListener('touchstart',start,{passive:false});c.addEventListener('touchmove',move,{passive:false});c.addEventListener('touchend',end,{passive:false});
+c.addEventListener('mousedown',start);c.addEventListener('mousemove',move);c.addEventListener('mouseup',end);
+document.getElementById('clearBtn').onclick=()=>{ctx.clearRect(0,0,c.width,c.height);has=false;document.getElementById('msg').textContent=''};
+document.getElementById('okBtn').onclick=async()=>{
+  if(!has){document.getElementById('msg').textContent='Bitte erst unterschreiben.';return}
+  if(!TOKEN){document.getElementById('msg').textContent='Ungültiger Link (kein Token).';return}
+  document.getElementById('msg').textContent='Wird gesendet …';
+  try{
+    const blob=await (await fetch(c.toDataURL('image/png'))).blob();
+    const res=await fetch(SUPA_URL+'/storage/v1/object/'+SUPA_BUCKET+'/signatures/'+encodeURIComponent(TOKEN)+'.png',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY,'Content-Type':'image/png','x-upsert':'true'},
+      body:blob
+    });
+    if(res.ok){document.getElementById('msg').textContent='Danke! Unterschrift übertragen. Dieses Fenster kann geschlossen werden.';document.getElementById('okBtn').disabled=true;document.getElementById('clearBtn').disabled=true}
+    else{document.getElementById('msg').textContent='Fehler beim Senden ('+res.status+').'}
+  }catch(e){document.getElementById('msg').textContent='Fehler: '+e}
+};
+</script></body></html>`;
+
+  return new Response(html, {
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+});
