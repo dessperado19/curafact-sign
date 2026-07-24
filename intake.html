@@ -1,0 +1,438 @@
+$ cat "/private/tmp/claude-501/-Users-ondersulungur-Library-Mobile-Documents-com-apple-CloudDocs-Curafact-Studio/cdabe053-3387-4774-91d7-8d2a10baae2e/scratchpad/intake.html"
+
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>CuraFact - Aufnahme</title>
+<style>
+:root{--blue:#0b457f;--blue2:#4f5fe0}
+*{box-sizing:border-box}
+html,body{margin:0;background:#f2f5fb;font-family:-apple-system,sans-serif;color:#111}
+.wrap{max-width:560px;margin:0 auto;padding:16px 16px 40px}
+h1{font-size:19px;color:var(--blue);margin:10px 0 2px}
+.sub{color:#667;font-size:13px;margin:0 0 18px}
+.box{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.box h2{font-size:15px;color:var(--blue);margin:0 0 12px;border-bottom:1px solid #e5e7eb;padding-bottom:8px}
+.boxHead{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid #e5e7eb;padding-bottom:8px;margin-bottom:12px}
+.boxHead h2{border:0;padding:0;margin:0}
+.boxHead button{white-space:nowrap;padding:9px 12px;font-size:13px}
+label{display:block;font-size:12px;color:#555;margin:10px 0 3px}
+input[type=text],input[type=date],input[type=tel],input[type=number],select,textarea{
+  width:100%;padding:11px;border:1px solid #d7dce5;border-radius:9px;font-size:15px;background:#fbfcfe}
+input[disabled]{background:#eef0f4;color:#889}
+textarea{min-height:70px;resize:vertical}
+.checkline{display:flex;align-items:center;gap:8px;font-size:14px;color:#222;margin:12px 0 4px}
+.checkline input{width:18px;height:18px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.linkbox{font-family:monospace;font-size:12px;background:#eef2f9;padding:8px;border-radius:7px;word-break:break-all;margin:6px 0}
+.sharebar{display:flex;gap:8px}
+button{border:0;border-radius:9px;font-size:14px;font-weight:600;padding:11px 14px;cursor:pointer}
+.addBtn{background:#e6edf7;color:var(--blue);width:100%;margin-top:10px}
+.shareBtn{background:var(--blue);color:#fff;flex:1}
+.copyBtn{background:#dbe3ee;color:#222;flex:1}
+canvas{width:100%;height:130px;background:#fff;border:1px solid #d7dce5;border-radius:10px;touch-action:none;display:block;margin-top:8px}
+.sigbar{display:flex;gap:8px;margin-top:8px}
+.sigbar button{flex:1}
+.sigArea{margin-top:14px;padding-top:12px;border-top:1px dashed #dde2eb}
+.sigFileRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fileBtnStyle{background:#e9ecf2;color:#333;padding:9px 12px;font-size:13px}
+.fileStatusStyle{font-size:12px;color:#889}
+.sigPreviewImg{max-width:100%;max-height:110px;border:1px solid #d7dce5;border-radius:8px;margin-top:8px;display:block}
+#clearSig,.sigbar button{background:#e9ecf2;color:#333}
+#submitBtn{background:#1f8f4d;color:#fff;width:100%;padding:15px;font-size:16px;margin-top:16px}
+#msg{text-align:center;padding:10px;font-size:14px}
+.hidden{display:none}
+.pgEntry{border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-top:10px}
+.pgListRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-top:10px}
+.chip{background:#e6e9fb;color:var(--blue2);font-size:12px;font-weight:700;padding:3px 9px;border-radius:20px}
+.pgListRow .removeBtn{background:var(--blue2);color:#fff;margin-left:auto;padding:8px 12px;font-size:13px}
+.vpTable{width:100%;border-collapse:collapse;margin-top:8px}
+.vpTable th{text-align:left;font-size:12px;color:#667;padding:6px 4px;border-bottom:1px solid #e5e7eb}
+.vpTable td{padding:8px 4px;border-bottom:1px solid #f0f2f6;vertical-align:top}
+.vpTable input[type=number]{width:100px}
+.vphint{font-size:11px;color:#889}
+.note{font-size:11px;color:#889;margin-top:6px}
+.helperSlot{border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-top:12px}
+.slotHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.slotHead strong{color:var(--blue);font-size:14px}
+.removeSlotBtn{background:#fde8e8;color:#b42323;padding:7px 11px;font-size:12px}
+.linkResult{margin-top:8px}
+</style></head><body>
+<div class="wrap">
+  <h1 id="pageTitle">CuraFact - Aufnahme</h1>
+  <p class="sub" id="pageSub"></p>
+
+  <div id="mainForm">
+    <div class="box">
+      <h2>Angaben zur pflegebedürftigen Person</h2>
+      <label>Name, Vorname</label><input type="text" id="pflege_name">
+      <label>Anschrift (Straße, PLZ, Ort)</label><input type="text" id="pflege_anschrift">
+      <div class="grid2">
+        <div><label>Geburtsdatum</label><input type="date" id="pflege_geburtsdatum"></div>
+        <div><label>Versichertennummer</label><input type="text" id="pflege_kvnr"></div>
+      </div>
+      <label>Pflegekasse</label><input type="text" id="pflege_kasse">
+    </div>
+
+    <div class="box">
+      <h2>Unterschrift</h2>
+      <div class="sigFileRow">
+        <button type="button" class="fileBtnStyle" id="sigfilebtn_main">Datei wählen</button>
+        <input type="file" accept="image/*" id="sigfile_main" class="hidden">
+        <span class="fileStatusStyle" id="sigfilestatus_main">Keine Datei ausgewählt</span>
+      </div>
+      <img id="sigpreview_main" class="sigPreviewImg hidden">
+      <label style="margin-top:10px">oder direkt unterschreiben</label>
+      <canvas id="sig_main"></canvas>
+      <div class="sigbar"><button type="button" id="sigclear_main">Löschen</button></div>
+    </div>
+
+    <div class="box">
+      <h2>Angaben zur Pflegeperson</h2>
+      <div class="checkline"><input type="checkbox" id="person_same_addr"><span>Gleiche Anschrift wie pflegebedürftige Person</span></div>
+      <label>Name, Vorname</label><input type="text" id="person_name">
+      <label>Anschrift (Straße, PLZ, Ort)</label><input type="text" id="person_anschrift">
+      <label>Geburtsdatum</label><input type="date" id="person_geburtsdatum">
+    </div>
+
+    <div class="box">
+      <div class="boxHead"><h2>Nachbarschaftshilfen</h2><button type="button" class="addBtn" id="addHelperSlotBtn" style="margin:0;width:auto">+ Nachbarschaftshilfe</button></div>
+      <p class="sub" style="margin:0">Trag ein, was du weißt. Willst du, dass die Person es lieber selbst ausfüllt (inkl. eigener Unterschrift), erzeuge unten in der jeweiligen Person einen Link - deine bisherigen Angaben werden übernommen und können von ihr noch korrigiert werden.</p>
+      <div id="helperSlots"></div>
+    </div>
+
+    <div class="box">
+      <h2>Pflegegrade</h2>
+      <div class="pgEntry">
+        <label>Stufe</label>
+        <select id="pg_stufe"><option value="">Bitte wählen</option>
+          <option value="1">Pflegegrad 1</option><option value="2">Pflegegrad 2</option>
+          <option value="3">Pflegegrad 3</option><option value="4">Pflegegrad 4</option>
+          <option value="5">Pflegegrad 5</option></select>
+        <label>Von</label><input type="date" id="pg_von">
+        <label>Bis</label><input type="date" id="pg_bis">
+        <div class="checkline"><input type="checkbox" id="pg_fortlaufend"><span>Fortlaufend</span></div>
+        <div class="checkline"><input type="checkbox" id="pg_entlastung"><span>Entlastung genommen</span></div>
+        <div class="checkline"><input type="checkbox" id="pg_umwandlung"><span>Umwandlung genommen</span></div>
+        <button type="button" class="addBtn" id="addPgBtn">Hinzufügen</button>
+      </div>
+      <div id="pgListBox"></div>
+    </div>
+
+    <div class="box">
+      <h2>Verhinderungspflege</h2>
+      <table class="vpTable">
+        <thead><tr><th>Jahr</th><th>genommen?</th><th>Restbetrag (€)</th><th>beantragen?</th></tr></thead>
+        <tbody>
+          <tr>
+            <td id="vp_cur_year_lbl">–</td>
+            <td><input type="checkbox" id="vp_cur_genommen"></td>
+            <td><input type="number" id="vp_cur_betrag" placeholder="z.B. 3539"><div class="vphint" id="vp_cur_max"></div></td>
+            <td><input type="checkbox" id="vp_cur_rest"></td>
+          </tr>
+          <tr>
+            <td id="vp_prev_year_lbl">–</td>
+            <td><input type="checkbox" id="vp_prev_genommen"></td>
+            <td><input type="number" id="vp_prev_betrag" placeholder="z.B. 3539"><div class="vphint" id="vp_prev_max"></div></td>
+            <td><input type="checkbox" id="vp_prev_rest"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box">
+      <h2>Anmerkungen</h2>
+      <textarea id="anmerkungen" placeholder="Sonstiges, das wir wissen sollten (optional)"></textarea>
+    </div>
+
+    <button type="button" id="submitBtn">Absenden</button>
+    <div id="msg"></div>
+  </div>
+
+  <div id="helperForm" class="hidden">
+    <div class="box">
+      <h2>Angaben zur Nachbarschaftshilfe</h2>
+      <p class="sub" id="helperPrefillNote" style="display:none">Ein paar Angaben sind schon ausgefüllt - bitte prüfen und bei Bedarf korrigieren.</p>
+      <label>Name, Vorname</label><input type="text" id="hilfe_name">
+      <label>Anschrift (Straße, PLZ, Ort)</label><input type="text" id="hilfe_anschrift">
+      <div class="grid2">
+        <div><label>Geburtsdatum</label><input type="date" id="hilfe_geburtsdatum"></div>
+        <div><label>Telefonnummer</label><input type="tel" id="hilfe_telefon"></div>
+      </div>
+    </div>
+    <div class="box">
+      <h2>Unterschrift</h2>
+      <div class="sigFileRow">
+        <button type="button" class="fileBtnStyle" id="sigfilebtn_helper">Datei wählen</button>
+        <input type="file" accept="image/*" id="sigfile_helper" class="hidden">
+        <span class="fileStatusStyle" id="sigfilestatus_helper">Keine Datei ausgewählt</span>
+      </div>
+      <img id="sigpreview_helper" class="sigPreviewImg hidden">
+      <label style="margin-top:10px">oder direkt unterschreiben</label>
+      <canvas id="sig_helper"></canvas>
+      <div class="sigbar"><button type="button" id="sigclear_helper">Löschen</button></div>
+    </div>
+    <button type="button" id="submitHelperBtn">Absenden</button>
+    <div id="msgHelper"></div>
+  </div>
+</div>
+
+<script>
+var SUBMIT_URL='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1/submit';
+var params=new URLSearchParams(location.search);
+var ROLE=params.get('role')||'main';
+var SESSION=params.get('s')||'';
+var LABEL=params.get('l')||'';
+var HIDX=parseInt(params.get('h'))||1;
+var now=new Date();
+var curYear=now.getFullYear();
+var prevYear=curYear-1;
+function vpMax(y){return y>=2025?3539:2418}
+function fmtDate(v){if(!v)return '';var p=v.split('-');return p.length===3?(p[2]+'.'+p[1]+'.'+p[0]):v}
+
+function setupSigInput(prefix){
+  var canvas=document.getElementById('sig_'+prefix);
+  var ctx=canvas.getContext('2d');
+  function resize(){var r=canvas.getBoundingClientRect();canvas.width=r.width*2;canvas.height=r.height*2;ctx.scale(2,2);ctx.lineWidth=2.4;ctx.lineCap='round';ctx.strokeStyle='#0b1f3a'}
+  resize();
+  var drawing=false, hasDrawing=false, uploadedDataUrl=null;
+  function pos(e){var r=canvas.getBoundingClientRect();var t=e.touches?e.touches[0]:e;return {x:t.clientX-r.left,y:t.clientY-r.top}}
+  function start(e){drawing=true;hasDrawing=true;uploadedDataUrl=null;var p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);e.preventDefault()}
+  function move(e){if(!drawing)return;var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();e.preventDefault()}
+  function end(e){drawing=false;if(e)e.preventDefault()}
+  canvas.addEventListener('touchstart',start,{passive:false});
+  canvas.addEventListener('touchmove',move,{passive:false});
+  canvas.addEventListener('touchend',end,{passive:false});
+  canvas.addEventListener('mousedown',start);
+  canvas.addEventListener('mousemove',move);
+  canvas.addEventListener('mouseup',end);
+
+  var fileBtn=document.getElementById('sigfilebtn_'+prefix);
+  var fileInput=document.getElementById('sigfile_'+prefix);
+  var fileStatus=document.getElementById('sigfilestatus_'+prefix);
+  var preview=document.getElementById('sigpreview_'+prefix);
+  fileBtn.onclick=function(){fileInput.click()};
+  fileInput.onchange=function(){
+    var f=fileInput.files[0];
+    if(!f)return;
+    var reader=new FileReader();
+    reader.onload=function(){
+      uploadedDataUrl=reader.result;
+      fileStatus.textContent=f.name;
+      preview.src=uploadedDataUrl;
+      preview.classList.remove('hidden');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      hasDrawing=false;
+    };
+    reader.readAsDataURL(f);
+  };
+  document.getElementById('sigclear_'+prefix).onclick=function(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    hasDrawing=false;
+    uploadedDataUrl=null;
+    fileInput.value='';
+    fileStatus.textContent='Keine Datei ausgewählt';
+    preview.classList.add('hidden');
+    preview.src='';
+  };
+
+  return {
+    hasFn:function(){return hasDrawing || !!uploadedDataUrl},
+    getDataUrl:function(){return uploadedDataUrl || (hasDrawing?canvas.toDataURL('image/png'):'')}
+  };
+}
+
+function shareOrCopy(url, btn){
+  if(navigator.share){
+    navigator.share({title:'CuraFact Nachbarschaftshilfe', text:'Bitte kurz prüfen, ergänzen und unterschreiben:', url:url}).catch(function(){});
+  } else {
+    navigator.clipboard.writeText(url).then(function(){btn.textContent='Kopiert!';setTimeout(function(){btn.textContent='Teilen'},1500)});
+  }
+}
+
+function initHelperRole(){
+  document.getElementById('mainForm').classList.add('hidden');
+  document.getElementById('helperForm').classList.remove('hidden');
+  document.getElementById('pageTitle').textContent='Nachbarschaftshilfe - Angaben';
+  document.getElementById('pageSub').textContent=LABEL||'Bitte deine Daten eintragen und unterschreiben.';
+  var pn=params.get('pn')||'', pa=params.get('pa')||'', pg=params.get('pg')||'', pt=params.get('pt')||'';
+  if(pn||pa||pg||pt){
+    document.getElementById('hilfe_name').value=pn;
+    document.getElementById('hilfe_anschrift').value=pa;
+    document.getElementById('hilfe_geburtsdatum').value=pg;
+    document.getElementById('hilfe_telefon').value=pt;
+    document.getElementById('helperPrefillNote').style.display='block';
+  }
+  var sig=setupSigInput('helper');
+  document.getElementById('submitHelperBtn').onclick=function(){
+    var msg=document.getElementById('msgHelper');
+    if(!document.getElementById('hilfe_name').value.trim()){msg.textContent='Bitte mindestens den Namen eintragen.';return}
+    if(!sig.hasFn()){msg.textContent='Bitte unterschreiben oder eine Datei wählen.';return}
+    msg.textContent='Wird gesendet …';
+    var data={
+      hilfe_name:document.getElementById('hilfe_name').value,
+      hilfe_anschrift:document.getElementById('hilfe_anschrift').value,
+      hilfe_geburtsdatum:document.getElementById('hilfe_geburtsdatum').value,
+      hilfe_telefon:document.getElementById('hilfe_telefon').value
+    };
+    fetch(SUBMIT_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'intake', session:SESSION, role:'helper', index:HIDX, data:data, dataurl:sig.getDataUrl()})
+    }).then(function(res){
+      return res.json().catch(function(){return {ok:false}}).then(function(j){return {res:res,j:j}});
+    }).then(function(r){
+      if(r.res.ok && r.j.ok){msg.textContent='Danke! Deine Angaben wurden übertragen. Dieses Fenster kann geschlossen werden.';document.getElementById('submitHelperBtn').disabled=true}
+      else{msg.textContent='Fehler beim Senden ('+r.res.status+').'}
+    }).catch(function(e){msg.textContent='Fehler: '+e});
+  };
+}
+
+function initMainRole(){
+  document.getElementById('pageSub').textContent=LABEL||'Bitte die Felder ausfüllen, die du zum jetzigen Zeitpunkt weißt - der Rest kann leer bleiben.';
+  document.getElementById('vp_cur_year_lbl').textContent=String(curYear);
+  document.getElementById('vp_prev_year_lbl').textContent=String(prevYear);
+  document.getElementById('vp_cur_max').textContent='max: '+vpMax(curYear)+' €';
+  document.getElementById('vp_prev_max').textContent='max: '+vpMax(prevYear)+' €';
+  var mainSig=setupSigInput('main');
+
+  document.getElementById('person_same_addr').onchange=function(e){
+    var personAddr=document.getElementById('person_anschrift');
+    if(e.target.checked){
+      personAddr.value=document.getElementById('pflege_anschrift').value;
+      personAddr.disabled=true;
+    } else {
+      personAddr.disabled=false;
+    }
+  };
+  document.getElementById('pflege_anschrift').addEventListener('input',function(){
+    if(document.getElementById('person_same_addr').checked){
+      document.getElementById('person_anschrift').value=this.value;
+    }
+  });
+
+  var helperCount=0;
+  var helperSigs={};
+  function addHelperSlot(){
+    helperCount++;
+    var n=helperCount;
+    var slot=document.createElement('div');
+    slot.className='helperSlot';
+    slot.innerHTML=
+      '<div class="slotHead"><strong>'+n+'. Nachbarschaftshilfe</strong><button type="button" class="removeSlotBtn" data-n="'+n+'">Entfernen</button></div>'+
+      '<label>Name, Vorname</label><input type="text" id="h'+n+'_name">'+
+      '<label>Anschrift (Straße, PLZ, Ort)</label><input type="text" id="h'+n+'_anschrift">'+
+      '<div class="grid2"><div><label>Geburtsdatum</label><input type="date" id="h'+n+'_geburtsdatum"></div><div><label>Telefonnummer</label><input type="tel" id="h'+n+'_telefon"></div></div>'+
+      '<div class="sigArea"><label>Unterschrift</label>'+
+        '<div class="sigFileRow"><button type="button" class="fileBtnStyle" id="sigfilebtn_h'+n+'">Datei wählen</button><input type="file" accept="image/*" id="sigfile_h'+n+'" class="hidden"><span class="fileStatusStyle" id="sigfilestatus_h'+n+'">Keine Datei ausgewählt</span></div>'+
+        '<img id="sigpreview_h'+n+'" class="sigPreviewImg hidden">'+
+        '<label style="margin-top:10px">oder direkt unterschreiben</label>'+
+        '<canvas id="sig_h'+n+'"></canvas>'+
+        '<div class="sigbar"><button type="button" id="sigclear_h'+n+'">Löschen</button></div>'+
+      '</div>'+
+      '<button type="button" class="addBtn shareSlotBtn" data-n="'+n+'">Link an diese Person senden (mit meinen Angaben vorausgefüllt)</button>'+
+      '<div class="linkResult" id="linkresult_h'+n+'"></div>';
+    document.getElementById('helperSlots').appendChild(slot);
+    helperSigs[n]=setupSigInput('h'+n);
+    slot.querySelector('.removeSlotBtn').onclick=function(){slot.remove();delete helperSigs[n]};
+    slot.querySelector('.shareSlotBtn').onclick=function(){
+      var pn=document.getElementById('h'+n+'_name').value;
+      var pa=document.getElementById('h'+n+'_anschrift').value;
+      var pg=document.getElementById('h'+n+'_geburtsdatum').value;
+      var pt=document.getElementById('h'+n+'_telefon').value;
+      var mainName=document.getElementById('pflege_name').value.trim();
+      var url=location.origin+location.pathname+'?role=helper&s='+encodeURIComponent(SESSION)+'&h='+n+
+        '&l='+encodeURIComponent('Nachbarschaftshilfe'+(mainName?(' für '+mainName):''))+
+        '&pn='+encodeURIComponent(pn)+'&pa='+encodeURIComponent(pa)+'&pg='+encodeURIComponent(pg)+'&pt='+encodeURIComponent(pt);
+      var box=document.getElementById('linkresult_h'+n);
+      box.innerHTML='<div class="linkbox">'+url+'</div><div class="sharebar"><button type="button" class="shareBtn">Teilen</button><button type="button" class="copyBtn">Kopieren</button></div>';
+      box.querySelector('.shareBtn').onclick=function(e){shareOrCopy(url, e.target)};
+      box.querySelector('.copyBtn').onclick=function(e){navigator.clipboard.writeText(url);e.target.textContent='Kopiert!';setTimeout(function(){e.target.textContent='Kopieren'},1500)};
+    };
+  }
+  document.getElementById('addHelperSlotBtn').onclick=addHelperSlot;
+
+  var pgList=[];
+  function renderPgList(){
+    var box=document.getElementById('pgListBox');
+    box.innerHTML=pgList.map(function(pg,i){
+      return '<div class="pgListRow"><span class="chip">PG '+pg.stufe+'</span><span>'+fmtDate(pg.von)+' – '+(pg.bis?fmtDate(pg.bis):(pg.fortlaufend?'fortlaufend':'?'))+'</span>'+
+      '<span class="chip">Entlastung: '+(pg.entlastung_genommen?'ja':'nein')+'</span>'+
+      '<span class="chip">Umwandlung: '+(pg.umwandlung_genommen?'ja':'nein')+'</span>'+
+      '<button type="button" class="removeBtn" data-i="'+i+'">Entfernen</button></div>';
+    }).join('');
+    var btns=box.querySelectorAll('.removeBtn');
+    for(var i=0;i<btns.length;i++){
+      btns[i].onclick=function(e){pgList.splice(parseInt(e.target.getAttribute('data-i')),1);renderPgList()};
+    }
+  }
+  document.getElementById('addPgBtn').onclick=function(){
+    var stufe=document.getElementById('pg_stufe').value;
+    if(!stufe){alert('Bitte Stufe angeben.');return}
+    pgList.push({
+      stufe:stufe,
+      von:document.getElementById('pg_von').value,
+      bis:document.getElementById('pg_bis').value,
+      fortlaufend:document.getElementById('pg_fortlaufend').checked,
+      entlastung_genommen:document.getElementById('pg_entlastung').checked,
+      umwandlung_genommen:document.getElementById('pg_umwandlung').checked
+    });
+    renderPgList();
+    document.getElementById('pg_stufe').value='';
+    document.getElementById('pg_von').value='';
+    document.getElementById('pg_bis').value='';
+    document.getElementById('pg_fortlaufend').checked=false;
+    document.getElementById('pg_entlastung').checked=false;
+    document.getElementById('pg_umwandlung').checked=false;
+  };
+
+  document.getElementById('submitBtn').onclick=function(){
+    var msg=document.getElementById('msg');
+    if(!document.getElementById('pflege_name').value.trim()){msg.textContent='Bitte mindestens den Namen eintragen.';return}
+    if(!SESSION){msg.textContent='Ungültiger Link (keine Sitzung).';return}
+    msg.textContent='Wird gesendet …';
+    var nachbarschaftshilfen=[];
+    Object.keys(helperSigs).forEach(function(n){
+      var name=document.getElementById('h'+n+'_name');
+      if(!name)return;
+      nachbarschaftshilfen.push({
+        hilfe_name:name.value,
+        hilfe_anschrift:document.getElementById('h'+n+'_anschrift').value,
+        hilfe_geburtsdatum:document.getElementById('h'+n+'_geburtsdatum').value,
+        hilfe_telefon:document.getElementById('h'+n+'_telefon').value,
+        hilfe_sig_dataurl:helperSigs[n].getDataUrl()
+      });
+    });
+    var data={
+      pflege_name:document.getElementById('pflege_name').value,
+      pflege_anschrift:document.getElementById('pflege_anschrift').value,
+      pflege_geburtsdatum:document.getElementById('pflege_geburtsdatum').value,
+      pflege_kvnr:document.getElementById('pflege_kvnr').value,
+      pflege_kasse:document.getElementById('pflege_kasse').value,
+      person_name:document.getElementById('person_name').value,
+      person_anschrift:document.getElementById('person_anschrift').value,
+      person_geburtsdatum:document.getElementById('person_geburtsdatum').value,
+      person_same_addr:document.getElementById('person_same_addr').checked,
+      pflegegrade:pgList,
+      nachbarschaftshilfen:nachbarschaftshilfen,
+      vp_current_year:curYear,
+      vp_cur_genommen:document.getElementById('vp_cur_genommen').checked,
+      vp_cur_betrag:document.getElementById('vp_cur_betrag').value,
+      vp_cur_rest_beantragen:document.getElementById('vp_cur_rest').checked,
+      vp_prev_year:prevYear,
+      vp_prev_genommen:document.getElementById('vp_prev_genommen').checked,
+      vp_prev_betrag:document.getElementById('vp_prev_betrag').value,
+      vp_prev_rest_beantragen:document.getElementById('vp_prev_rest').checked,
+      anmerkungen:document.getElementById('anmerkungen').value
+    };
+    fetch(SUBMIT_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'intake', session:SESSION, role:'main', data:data, dataurl:mainSig.getDataUrl()})
+    }).then(function(res){
+      return res.json().catch(function(){return {ok:false}}).then(function(j){return {res:res,j:j}});
+    }).then(function(r){
+      if(r.res.ok && r.j.ok){msg.textContent='Danke! Deine Angaben wurden übertragen. Dieses Fenster kann geschlossen werden.';document.getElementById('submitBtn').disabled=true}
+      else{msg.textContent='Fehler beim Senden ('+r.res.status+').'}
+    }).catch(function(e){msg.textContent='Fehler: '+e});
+  };
+}
+
+if(ROLE==='helper'){ initHelperRole(); } else { initMainRole(); }
+</script>
+</body></html>
