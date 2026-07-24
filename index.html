@@ -18,7 +18,7 @@ button{flex:1;padding:16px;border:0;border-radius:10px;font-size:16px;font-weigh
 <div id="msg"></div>
 <div class="bar"><button id="clearBtn" type="button">Löschen</button><button id="okBtn" type="button">Fertig</button></div>
 <script>
-const SUPA_URL='https://vdqumlxjmgqrmwlxqwre.supabase.co', SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcXVtbHhqbWdxcm13bHhxd3JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NTg0NDcsImV4cCI6MjA3NDAzNDQ0N30.sG8vMck4tSDWwsTay_tUujlRDruFjscrrMOhmlkj8Ws', SUPA_BUCKET='curafact-sign';
+const SUBMIT_URL='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1/submit';
 const params=new URLSearchParams(location.search);
 const TOKEN=params.get('t')||'', LABEL=params.get('l')||'';
 if(LABEL)document.getElementById('lbl').textContent=LABEL;
@@ -38,13 +38,13 @@ document.getElementById('okBtn').onclick=async()=>{
   if(!TOKEN){document.getElementById('msg').textContent='Ungültiger Link (kein Token).';return}
   document.getElementById('msg').textContent='Wird gesendet …';
   try{
-    const blob=await (await fetch(c.toDataURL('image/png'))).blob();
-    const res=await fetch(SUPA_URL+'/storage/v1/object/'+SUPA_BUCKET+'/signatures/'+encodeURIComponent(TOKEN)+'.png',{
+    const res=await fetch(SUBMIT_URL,{
       method:'POST',
-      headers:{'Authorization':'Bearer '+SUPA_KEY,'apikey':SUPA_KEY,'Content-Type':'image/png','x-upsert':'true'},
-      body:blob
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'signature', token:TOKEN, dataurl:c.toDataURL('image/png')})
     });
-    if(res.ok){document.getElementById('msg').textContent='Danke! Unterschrift übertragen. Dieses Fenster kann geschlossen werden.';document.getElementById('okBtn').disabled=true;document.getElementById('clearBtn').disabled=true}
+    const j=await res.json().catch(()=>({ok:false}));
+    if(res.ok&&j.ok){document.getElementById('msg').textContent='Danke! Unterschrift übertragen. Dieses Fenster kann geschlossen werden.';document.getElementById('okBtn').disabled=true;document.getElementById('clearBtn').disabled=true}
     else{document.getElementById('msg').textContent='Fehler beim Senden ('+res.status+').'}
   }catch(e){document.getElementById('msg').textContent='Fehler: '+e}
 };
