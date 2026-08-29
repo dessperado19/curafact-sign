@@ -1,0 +1,267 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>CuraFact - Beratungsbesuch § 37 Abs. 3 SGB XI</title>
+<style>
+:root{--blue:#0b457f;--blue2:#4f5fe0}
+*{box-sizing:border-box}
+html,body{margin:0;background:#f2f5fb;font-family:-apple-system,sans-serif;color:#111}
+.wrap{max-width:560px;margin:0 auto;padding:16px 16px 40px}
+h1{font-size:19px;color:var(--blue);margin:10px 0 2px}
+.sub{color:#667;font-size:13px;margin:0 0 18px}
+.box{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.box h2{font-size:15px;color:var(--blue);margin:0 0 12px;border-bottom:1px solid #e5e7eb;padding-bottom:8px}
+label{display:block;font-size:12px;color:#555;margin:10px 0 3px}
+input[type=text],input[type=date],input[type=time],select,textarea{
+  width:100%;padding:11px;border:1px solid #d7dce5;border-radius:9px;font-size:15px;background:#fbfcfe}
+textarea{min-height:80px;resize:vertical}
+.checkline{display:flex;align-items:center;gap:8px;font-size:14px;color:#222;margin:12px 0 4px}
+.checkline input{width:18px;height:18px;flex:none}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 12px}
+.mnGrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;margin-top:8px}
+.mnGrid .checkline{margin:4px 0;font-size:13px}
+.radioRow{display:flex;gap:16px;margin-top:6px}
+.radioRow label{display:flex;align-items:center;gap:6px;font-size:14px;color:#222;margin:0}
+.radioRow input{width:18px;height:18px}
+button{border:0;border-radius:9px;font-size:14px;font-weight:600;padding:11px 14px;cursor:pointer}
+canvas{width:100%;height:130px;background:#fff;border:1px solid #d7dce5;border-radius:10px;touch-action:none;display:block;margin-top:8px}
+.sigbar{display:flex;gap:8px;margin-top:8px}
+.sigbar button{flex:1;background:#e9ecf2;color:#333}
+.sigArea{margin-top:14px;padding-top:12px;border-top:1px dashed #dde2eb}
+.sigFileRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.fileBtnStyle{background:#e9ecf2;color:#333;padding:9px 12px;font-size:13px}
+.fileStatusStyle{font-size:12px;color:#889}
+.sigPreviewImg{max-width:100%;max-height:110px;border:1px solid #d7dce5;border-radius:8px;margin-top:8px;display:block}
+.hidden{display:none}
+.note{font-size:11px;color:#889;margin-top:6px}
+#submitBtn{background:#1f8f4d;color:#fff;width:100%;padding:15px;font-size:16px;margin-top:6px}
+#msg{text-align:center;padding:10px;font-size:14px}
+</style></head><body>
+<div class="wrap">
+  <h1>Beratungsbesuch § 37 Abs. 3 SGB XI</h1>
+  <p class="sub" id="pageSub">Bitte die Felder ausfüllen, die du zum jetzigen Zeitpunkt weißt, und unten unterschreiben.</p>
+
+  <div class="box">
+    <h2>Angaben zur pflegebedürftigen Person</h2>
+    <label>Name, Vorname</label><input type="text" id="pflege_name">
+    <label>Anschrift (Straße, PLZ, Ort)</label><input type="text" id="pflege_anschrift">
+    <div class="grid2">
+      <div><label>Geburtsdatum</label><input type="date" id="pflege_geburtsdatum"></div>
+      <div><label>Versichertennummer</label><input type="text" id="pflege_kvnr"></div>
+    </div>
+    <label>Pflegekasse</label><input type="text" id="pflege_kasse">
+  </div>
+
+  <div class="box">
+    <h2>Beratungsbesuch</h2>
+    <div class="grid3">
+      <div><label>Datum</label><input type="date" id="besuch_datum"></div>
+      <div><label>Uhrzeit von</label><input type="time" id="besuch_von"></div>
+      <div><label>Uhrzeit bis</label><input type="time" id="besuch_bis"></div>
+    </div>
+    <label style="margin-top:10px">Form der Beratung</label>
+    <div class="radioRow">
+      <label><input type="radio" name="besuch_form" id="form_haeuslich" checked> Häuslichkeit</label>
+      <label><input type="radio" name="besuch_form" id="form_video"> Videokonferenz</label>
+    </div>
+  </div>
+
+  <div class="box">
+    <h2>Deine Einschätzung der Pflegesituation</h2>
+    <p class="sub" style="margin:0 0 6px">Wie erleben Sie die derzeitige Pflegesituation? Was funktioniert gut, wo gibt es Schwierigkeiten?</p>
+    <textarea id="einschaetzung_pflegeperson"></textarea>
+  </div>
+
+  <div class="box">
+    <h2>Ist die Pflege- und Betreuungssituation sichergestellt?</h2>
+    <div class="radioRow">
+      <label><input type="radio" name="sichergestellt" id="sicher_ja"> Ja</label>
+      <label><input type="radio" name="sichergestellt" id="sicher_nein"> Nein</label>
+    </div>
+    <div id="sicher_grund_box" class="hidden"><label>Falls Nein, weil</label><textarea id="sichergestellt_grund" style="min-height:50px"></textarea></div>
+  </div>
+
+  <div class="box">
+    <h2>Welche Unterstützung könnte helfen?</h2>
+    <p class="sub" style="margin:0">Was aus deiner Sicht zusätzlich hilfreich wäre (optional) - die Beratungsperson bespricht das mit dir.</p>
+    <div class="mnGrid" id="mnGrid"></div>
+  </div>
+
+  <div class="box">
+    <h2>§7a-Pflegeberatung</h2>
+    <div class="checkline"><input type="checkbox" id="wunsch_7a"><span>Ich wünsche eine (weitergehende) Pflegeberatung nach §7a SGB XI</span></div>
+  </div>
+
+  <div class="box">
+    <h2>Einwilligungen</h2>
+    <p class="sub" style="margin:0 0 6px">Die Übermittlung dieser Angaben an deine Pflegekasse ist freiwillig - ohne Einwilligung entstehen dir keine Nachteile.</p>
+    <div class="checkline"><input type="checkbox" id="einwilligung_ziffer3"><span>Übermittlung der Angaben zur Sicherstellung der Pflege- und Betreuungssituation an meine Pflegekasse</span></div>
+    <div class="checkline"><input type="checkbox" id="einwilligung_ziffer4"><span>Übermittlung der Empfehlungen zur Verbesserung der Pflege- und Betreuungssituation an meine Pflegekasse</span></div>
+    <div class="checkline"><input type="checkbox" id="einwilligung_7a_verarbeitung"><span>Verarbeitung der Ergebnisse dieses Besuchs im Rahmen einer §7a-Pflegeberatung</span></div>
+  </div>
+
+  <div class="box">
+    <h2>Unterschrift pflegebedürftige Person / gesetzliche Vertretung</h2>
+    <label>Ort, Datum</label><input type="text" id="ort_datum_unterschrift" placeholder="z.B. Harsewinkel, 15.09.2026">
+    <div class="sigArea">
+      <div class="sigFileRow">
+        <button type="button" class="fileBtnStyle" id="sigfilebtn_pflege">Datei wählen</button>
+        <input type="file" accept="image/*" id="sigfile_pflege" class="hidden">
+        <span class="fileStatusStyle" id="sigfilestatus_pflege">Keine Datei ausgewählt</span>
+      </div>
+      <img id="sigpreview_pflege" class="sigPreviewImg hidden">
+      <label style="margin-top:10px">oder direkt unterschreiben</label>
+      <canvas id="sig_pflege"></canvas>
+      <div class="sigbar"><button type="button" id="sigclear_pflege">Löschen</button></div>
+    </div>
+  </div>
+
+  <div class="box hidden" id="sigBeraterBox">
+    <h2>Unterschrift Beratungsperson</h2>
+    <p class="sub" style="margin:0 0 6px">Nur bei Beratung per Videokonferenz - die Beratungsperson unterschreibt hier direkt mit.</p>
+    <div class="sigArea">
+      <div class="sigFileRow">
+        <button type="button" class="fileBtnStyle" id="sigfilebtn_berater">Datei wählen</button>
+        <input type="file" accept="image/*" id="sigfile_berater" class="hidden">
+        <span class="fileStatusStyle" id="sigfilestatus_berater">Keine Datei ausgewählt</span>
+      </div>
+      <img id="sigpreview_berater" class="sigPreviewImg hidden">
+      <label style="margin-top:10px">oder direkt unterschreiben</label>
+      <canvas id="sig_berater"></canvas>
+      <div class="sigbar"><button type="button" id="sigclear_berater">Löschen</button></div>
+    </div>
+  </div>
+
+  <button type="button" id="submitBtn">Absenden</button>
+  <div id="msg"></div>
+  <p class="note">Deine Angaben werden von der Beratungsperson geprüft, ergänzt und in den offiziellen Nachweis nach § 37 Abs. 3 SGB XI übernommen.</p>
+</div>
+
+<script>
+var SUBMIT_URL='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1/submit';
+var params=new URLSearchParams(location.search);
+var SESSION=params.get('s')||'';
+var LABEL=params.get('l')||'';
+if(LABEL)document.getElementById('pageSub').textContent=LABEL;
+
+var MASSNAHMEN=[
+  ['pflegekurs','Pflegekurs/-schulung'],['kombinationsleistung','Kombinationsleistung'],
+  ['verhinderungspflege','Verhinderungspflege'],['tages_nachtpflege','Tages-/Nachtpflege'],
+  ['unterstuetzung_alltag','Angebote zur Unterstützung im Alltag'],['pflege_hilfsmittel','Pflege-/Hilfsmittel'],
+  ['erneute_pflegebegutachtung','Erneute Pflegebegutachtung'],['pflegesachleistungen','Pflegesachleistungen'],
+  ['kurzzeitpflege','Kurzzeitpflege'],['wohnraumanpassung','Wohnraumanpassung'],
+  ['rehabilitationsleistungen','Rehabilitationsleistungen'],['freistellungsmoeglichkeiten','Freistellungsmöglichkeiten Pflegezeit']
+];
+(function(){
+  var box=document.getElementById('mnGrid');
+  var html='';
+  for(var i=0;i<MASSNAHMEN.length;i++){
+    html+='<label class="checkline"><input type="checkbox" id="mn_'+MASSNAHMEN[i][0]+'"><span>'+MASSNAHMEN[i][1]+'</span></label>';
+  }
+  box.innerHTML=html;
+})();
+
+document.getElementById('sicher_ja').onchange=function(){document.getElementById('sicher_grund_box').classList.add('hidden')};
+document.getElementById('sicher_nein').onchange=function(){document.getElementById('sicher_grund_box').classList.remove('hidden')};
+document.getElementById('form_video').onchange=function(){document.getElementById('sigBeraterBox').classList.remove('hidden')};
+document.getElementById('form_haeuslich').onchange=function(){document.getElementById('sigBeraterBox').classList.add('hidden')};
+
+function setupSigInput(prefix){
+  var canvas=document.getElementById('sig_'+prefix);
+  var ctx=canvas.getContext('2d');
+  function resize(){var r=canvas.getBoundingClientRect();canvas.width=r.width*2;canvas.height=r.height*2;ctx.scale(2,2);ctx.lineWidth=2.4;ctx.lineCap='round';ctx.strokeStyle='#0b1f3a'}
+  resize();
+  var drawing=false, hasDrawing=false, uploadedDataUrl=null;
+  function pos(e){var r=canvas.getBoundingClientRect();var t=e.touches?e.touches[0]:e;return {x:t.clientX-r.left,y:t.clientY-r.top}}
+  function start(e){drawing=true;hasDrawing=true;uploadedDataUrl=null;var p=pos(e);ctx.beginPath();ctx.moveTo(p.x,p.y);e.preventDefault()}
+  function move(e){if(!drawing)return;var p=pos(e);ctx.lineTo(p.x,p.y);ctx.stroke();e.preventDefault()}
+  function end(e){drawing=false;if(e)e.preventDefault()}
+  canvas.addEventListener('touchstart',start,{passive:false});
+  canvas.addEventListener('touchmove',move,{passive:false});
+  canvas.addEventListener('touchend',end,{passive:false});
+  canvas.addEventListener('mousedown',start);
+  canvas.addEventListener('mousemove',move);
+  canvas.addEventListener('mouseup',end);
+
+  var fileBtn=document.getElementById('sigfilebtn_'+prefix);
+  var fileInput=document.getElementById('sigfile_'+prefix);
+  var fileStatus=document.getElementById('sigfilestatus_'+prefix);
+  var preview=document.getElementById('sigpreview_'+prefix);
+  fileBtn.onclick=function(){fileInput.click()};
+  fileInput.onchange=function(){
+    var f=fileInput.files[0];
+    if(!f)return;
+    var reader=new FileReader();
+    reader.onload=function(){
+      uploadedDataUrl=reader.result;
+      fileStatus.textContent=f.name;
+      preview.src=uploadedDataUrl;
+      preview.classList.remove('hidden');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      hasDrawing=false;
+    };
+    reader.readAsDataURL(f);
+  };
+  document.getElementById('sigclear_'+prefix).onclick=function(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    hasDrawing=false;
+    uploadedDataUrl=null;
+    fileInput.value='';
+    fileStatus.textContent='Keine Datei ausgewählt';
+    preview.classList.add('hidden');
+    preview.src='';
+  };
+  return {
+    hasFn:function(){return hasDrawing || !!uploadedDataUrl},
+    getDataUrl:function(){return uploadedDataUrl || (hasDrawing?canvas.toDataURL('image/png'):'')}
+  };
+}
+var sigPflege=setupSigInput('pflege');
+var sigBerater=setupSigInput('berater');
+
+document.getElementById('submitBtn').onclick=function(){
+  var msg=document.getElementById('msg');
+  if(!SESSION){msg.textContent='Ungültiger Link (keine Sitzung).';return}
+  if(!sigPflege.hasFn()){msg.textContent='Bitte unterschreiben oder eine Datei wählen.';return}
+  msg.textContent='Wird gesendet …';
+  var massnahmen=[];
+  for(var i=0;i<MASSNAHMEN.length;i++){
+    var el=document.getElementById('mn_'+MASSNAHMEN[i][0]);
+    if(el&&el.checked)massnahmen.push(MASSNAHMEN[i][0]);
+  }
+  var sichergestellt=null;
+  if(document.getElementById('sicher_ja').checked)sichergestellt=true;
+  if(document.getElementById('sicher_nein').checked)sichergestellt=false;
+  var data={
+    pflege_name:document.getElementById('pflege_name').value,
+    pflege_anschrift:document.getElementById('pflege_anschrift').value,
+    pflege_geburtsdatum:document.getElementById('pflege_geburtsdatum').value,
+    pflege_kvnr:document.getElementById('pflege_kvnr').value,
+    pflege_kasse:document.getElementById('pflege_kasse').value,
+    besuch_datum:document.getElementById('besuch_datum').value,
+    besuch_von:document.getElementById('besuch_von').value,
+    besuch_bis:document.getElementById('besuch_bis').value,
+    form:document.getElementById('form_video').checked?'videokonferenz':'haeuslichkeit',
+    einschaetzung_pflegeperson:document.getElementById('einschaetzung_pflegeperson').value,
+    sichergestellt:sichergestellt,
+    sichergestellt_grund:document.getElementById('sichergestellt_grund').value,
+    massnahmen:massnahmen,
+    wunsch_7a:document.getElementById('wunsch_7a').checked,
+    einwilligung_ziffer3:document.getElementById('einwilligung_ziffer3').checked,
+    einwilligung_ziffer4:document.getElementById('einwilligung_ziffer4').checked,
+    einwilligung_7a_verarbeitung:document.getElementById('einwilligung_7a_verarbeitung').checked,
+    ort_datum_unterschrift:document.getElementById('ort_datum_unterschrift').value,
+    sig_pflegebeduerftig_dataurl:sigPflege.getDataUrl(),
+    sig_beratungsperson_dataurl:sigBerater.getDataUrl()
+  };
+  fetch(SUBMIT_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:'intake', session:SESSION, role:'main', data:data, dataurl:''})
+  }).then(function(res){
+    return res.json().catch(function(){return {ok:false}}).then(function(j){return {res:res,j:j}});
+  }).then(function(r){
+    if(r.res.ok && r.j.ok){msg.textContent='Danke! Deine Angaben wurden übertragen. Dieses Fenster kann geschlossen werden.';document.getElementById('submitBtn').disabled=true}
+    else{msg.textContent='Fehler beim Senden ('+r.res.status+').'}
+  }).catch(function(e){msg.textContent='Fehler: '+e});
+};
+</script>
+</body></html>
