@@ -1,0 +1,301 @@
+<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>CuraFact Portal</title>
+<style>
+:root{--blue:#0E4A8B;--blue2:#07345f;--cyan:#20C6D4;--bg:#f5f8fb;--border:#dbe7f0;--text:#16324f;--muted:#66788a}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}
+.wrap{max-width:900px;margin:0 auto;padding:16px 16px 60px}
+h1{font-size:20px;color:var(--blue);margin:14px 0 2px;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13px;margin:0 0 18px}
+.box{background:#fff;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.box h2{font-size:14px;color:var(--blue);margin:0 0 12px;border-bottom:1px solid var(--border);padding-bottom:8px;text-transform:uppercase;letter-spacing:.04em}
+label{display:block;font-size:12px;color:var(--muted);margin:10px 0 3px;font-weight:700}
+input[type=text],input[type=date],input[type=password],select,textarea{
+  width:100%;min-width:0;padding:11px;border:1px solid var(--border);border-radius:9px;font-size:15px;background:#fbfcfe;font-family:inherit;color:var(--text)}
+input:focus,textarea:focus{outline:2px solid var(--cyan);outline-offset:1px}
+textarea{min-height:70px;resize:vertical}
+button{border:0;border-radius:9px;font-size:14px;font-weight:700;padding:11px 16px;cursor:pointer;background:#fff;color:var(--blue);border:1px solid var(--border)}
+button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+button:disabled{opacity:.5;cursor:default}
+.err{color:#b91c1c;font-size:13px;margin-top:8px;min-height:16px}
+.mini{font-size:12px;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.hidden{display:none!important}
+
+/* --- Login --- */
+#loginBox{max-width:360px;margin:60px auto 0;text-align:center}
+#loginBox img{height:44px}
+
+/* --- App shell --- */
+#appHead{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:10px 0 16px;flex-wrap:wrap}
+#appHead .who{font-size:13px;color:var(--muted)}
+#appHead .who strong{color:var(--blue)}
+.grid{display:grid;grid-template-columns:280px 1fr;gap:14px;align-items:start}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+
+#custList{display:flex;flex-direction:column;gap:6px;max-height:520px;overflow:auto}
+.custItem{text-align:left;display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:#fff;cursor:pointer}
+.custItem:hover{border-color:var(--cyan)}
+.custItem.sel{border-color:var(--cyan);background:#effcfd}
+.custItem strong{font-size:13.5px;color:var(--text)}
+.custItem span{font-size:11.5px;color:var(--muted)}
+
+.detailGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+@media(max-width:520px){.detailGrid{grid-template-columns:1fr}}
+.field{margin-bottom:6px}
+.field .k{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.field .v{font-size:14.5px;color:var(--text);margin-top:2px}
+
+.calcBox{background:#f2f8fc;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:6px}
+.noteItem{padding:10px 0;border-bottom:1px solid var(--border)}
+.noteItem:last-child{border-bottom:0}
+.noteItem .meta{font-size:11.5px;color:var(--muted);margin-bottom:2px}
+.empty{color:var(--muted);font-size:13px;padding:8px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div id="loginBox">
+    <img src="https://dessperado19.github.io/curafact-sign/logo.png" onerror="this.style.display='none'">
+    <h1 style="margin-top:6px">CuraFact Portal</h1>
+    <p class="sub">Kundendaten, Notizen und Termine von unterwegs</p>
+    <div class="box" style="text-align:left">
+      <label>Benutzername</label>
+      <input type="text" id="loginUser" autocomplete="username" placeholder="z.B. onder">
+      <label>Code aus der Authenticator-App</label>
+      <input type="text" id="loginCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••" style="letter-spacing:6px;text-align:center;font-size:20px">
+      <div class="err" id="loginErr"></div>
+      <button class="primary" id="loginBtn" style="width:100%;margin-top:10px">Anmelden</button>
+    </div>
+  </div>
+
+  <div id="appBox" class="hidden">
+    <div id="appHead">
+      <div>
+        <h1 style="margin:0">CuraFact Portal</h1>
+        <p class="sub" style="margin:2px 0 0">Kundendaten, Notizen und Termine</p>
+      </div>
+      <div class="row" style="align-items:center">
+        <span class="who">Angemeldet als <strong id="whoName"></strong></span>
+        <button id="logoutBtn">Abmelden</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="box" style="padding:12px">
+        <input type="text" id="custSearch" placeholder="Kunde suchen…" style="margin-bottom:10px">
+        <div id="custList"><div class="empty">Lade Kunden …</div></div>
+      </div>
+
+      <div id="detailBox">
+        <div class="box"><p class="empty">Bitte links einen Kunden auswählen.</p></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const FN_BASE = "https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1";
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcXVtbHhqbWdxcm13bHhxd3JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NTg0NDcsImV4cCI6MjA3NDAzNDQ0N30.sG8vMck4tSDWwsTay_tUujlRDruFjscrrMOhmlkj8Ws";
+
+function esc(v){return String(v??'').replace(/[&<>"]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}
+
+async function callFn(name, body){
+  try{
+    const r = await fetch(`${FN_BASE}/${name}`, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+ANON_KEY, 'apikey':ANON_KEY },
+      body: JSON.stringify(body||{}),
+    });
+    return await r.json();
+  }catch(e){
+    return { ok:false, message: 'Netzwerkfehler: '+e };
+  }
+}
+
+let session = null; // {token, user}
+let customers = [];
+let currentCustomer = null;
+
+function saveSession(s){ session = s; try{ sessionStorage.setItem('curafact_portal_session', JSON.stringify(s)); }catch(e){} }
+function loadSession(){ try{ const raw = sessionStorage.getItem('curafact_portal_session'); if(raw) session = JSON.parse(raw); }catch(e){} }
+function clearSession(){ session = null; try{ sessionStorage.removeItem('curafact_portal_session'); }catch(e){} }
+
+async function doLogin(){
+  const user = document.getElementById('loginUser').value.trim();
+  const code = document.getElementById('loginCode').value.trim();
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent = '';
+  if(!user || !code){ errEl.textContent = 'Bitte Name und Code eingeben.'; return; }
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Prüfe …';
+  const r = await callFn('portal-login', { username:user, code });
+  btn.disabled = false; btn.textContent = 'Anmelden';
+  if(!r.ok){ errEl.textContent = r.message || 'Anmeldung fehlgeschlagen.'; return; }
+  saveSession({ token:r.token, expires_at:r.expires_at, user:r.user });
+  showApp();
+}
+
+function doLogout(){
+  clearSession();
+  document.getElementById('appBox').classList.add('hidden');
+  document.getElementById('loginBox').classList.remove('hidden');
+  document.getElementById('loginCode').value = '';
+}
+
+async function showApp(){
+  document.getElementById('loginBox').classList.add('hidden');
+  document.getElementById('appBox').classList.remove('hidden');
+  document.getElementById('whoName').textContent = session.user.display_name || session.user.username;
+  await loadCustomers();
+}
+
+async function loadCustomers(){
+  const r = await callFn('portal-data', { token: session.token, action: 'list_customers' });
+  if(!r.ok){
+    if(String(r.message||'').includes('Sitzung')){ doLogout(); return; }
+    document.getElementById('custList').innerHTML = `<div class="empty">${esc(r.message||'Fehler beim Laden.')}</div>`;
+    return;
+  }
+  customers = r.customers || [];
+  renderCustList();
+}
+
+function renderCustList(){
+  const q = document.getElementById('custSearch').value.trim().toLowerCase();
+  const filtered = customers.filter(c => !q || (c.name||'').toLowerCase().includes(q));
+  if(!filtered.length){ document.getElementById('custList').innerHTML = '<div class="empty">Keine Kunden gefunden.</div>'; return; }
+  document.getElementById('custList').innerHTML = filtered.map(c => `
+    <div class="custItem ${currentCustomer===c.name?'sel':''}" data-name="${esc(c.name)}">
+      <strong>${esc(c.name)}</strong>
+      <span>${esc(c.kasse||'—')}${c.pflegegrad?' · '+esc(c.pflegegrad):''}</span>
+    </div>`).join('');
+  document.querySelectorAll('.custItem').forEach(el => {
+    el.onclick = () => openCustomer(el.dataset.name);
+  });
+}
+
+async function openCustomer(name){
+  currentCustomer = name;
+  renderCustList();
+  document.getElementById('detailBox').innerHTML = '<div class="box"><p class="empty">Lade …</p></div>';
+  const r = await callFn('portal-data', { token: session.token, action: 'get_customer', name });
+  if(!r.ok){
+    document.getElementById('detailBox').innerHTML = `<div class="box"><p class="empty">${esc(r.message||'Kunde konnte nicht geladen werden.')}</p></div>`;
+    return;
+  }
+  renderDetail(r.customer);
+  loadNotes(name);
+}
+
+function renderDetail(c){
+  const besuche = Array.isArray(c.beratungsbesuche) ? c.beratungsbesuche : [];
+  const letzterTermin = besuche.length ? (besuche[besuche.length-1].status||{}).naechster_termin : '';
+  const calc = c._last_calculation;
+
+  let html = `<div class="box">
+    <h2>Stammdaten</h2>
+    <div class="detailGrid">
+      <div class="field"><div class="k">Name</div><div class="v">${esc(c.pflege_name||'—')}</div></div>
+      <div class="field"><div class="k">Kasse</div><div class="v">${esc(c.pflege_kasse||'—')}</div></div>
+      <div class="field"><div class="k">Anschrift</div><div class="v">${esc(c.pflege_anschrift||'—')}</div></div>
+      <div class="field"><div class="k">Vers.-Nr.</div><div class="v">${esc(c.pflege_kvnr||'—')}</div></div>
+      <div class="field"><div class="k">Geburtsdatum</div><div class="v">${esc(c.pflege_geburtsdatum||'—')}</div></div>
+      <div class="field"><div class="k">Pflegeberatung</div><div class="v">${c.pflegeberatung_kunde?'Ja':'Nein'}</div></div>
+    </div>`;
+
+  if(Array.isArray(c.pflegegrade) && c.pflegegrade.length){
+    html += `<div style="margin-top:10px"><div class="k">Pflegegrade</div>`;
+    c.pflegegrade.forEach(pg => {
+      html += `<div class="v">PG${esc(pg.stufe||'?')} seit ${esc(pg.von||'—')}${pg.bis?' bis '+esc(pg.bis):''}${pg.fortlaufend?' (fortlaufend)':''}</div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  if(calc && calc.result){
+    const res = calc.result;
+    html += `<div class="box"><h2>Letzte Berechnung</h2>
+      <p class="mini">Stand: ${esc(calc.at||'')} — aus der Desktop-App, das Portal rechnet nicht selbst neu.</p>
+      <div class="calcBox">
+        <div class="v"><b>Brutto:</b> ${esc(fmtEuro(res.brutto))} €</div>
+        <div class="v"><b>Abzug:</b> ${esc(fmtEuro(res.abzug))} € (${esc(res.abzugPct||0)}%)</div>
+        <div class="v"><b>Netto:</b> ${esc(fmtEuro(res.netto))} €</div>
+      </div>
+    </div>`;
+  }
+
+  html += `<div class="box"><h2>Nächster Beratungstermin</h2>
+    <p class="v">Zuletzt bekannt: <b>${esc(letzterTermin||'—')}</b></p>
+    <p class="mini">Neues Datum setzen (wird an ClickUp gesendet, dort läuft der eigentliche Kalender):</p>
+    <div class="row" style="margin-top:6px">
+      <input type="text" id="terminInput" placeholder="TT.MM.JJJJ" style="max-width:180px">
+      <button class="primary" id="terminBtn">Termin senden</button>
+    </div>
+    <div class="err" id="terminErr"></div>
+  </div>`;
+
+  html += `<div class="box"><h2>Notizen</h2>
+    <div id="notesList"><div class="empty">Lade …</div></div>
+    <label style="margin-top:10px">Neue Notiz</label>
+    <textarea id="noteText" placeholder="z.B. Kunde bittet um Rückruf wegen ..."></textarea>
+    <button class="primary" id="noteBtn" style="margin-top:8px">Notiz speichern</button>
+  </div>`;
+
+  document.getElementById('detailBox').innerHTML = html;
+
+  document.getElementById('terminBtn').onclick = async () => {
+    const datum = document.getElementById('terminInput').value.trim();
+    const errEl = document.getElementById('terminErr');
+    errEl.textContent = '';
+    if(!datum){ errEl.textContent = 'Bitte ein Datum eingeben.'; return; }
+    const btn = document.getElementById('terminBtn');
+    btn.disabled = true;
+    const r = await callFn('portal-set-termin', { token: session.token, pflege_name: c.pflege_name, datum });
+    btn.disabled = false;
+    if(!r.ok){ errEl.textContent = r.message || 'Termin konnte nicht gesetzt werden.'; return; }
+    errEl.style.color = '#0b7b32'; errEl.textContent = r.message;
+  };
+
+  document.getElementById('noteBtn').onclick = async () => {
+    const text = document.getElementById('noteText').value.trim();
+    if(!text) return;
+    const btn = document.getElementById('noteBtn');
+    btn.disabled = true;
+    const r = await callFn('portal-data', { token: session.token, action:'add_note', customer_name: c.pflege_name, text });
+    btn.disabled = false;
+    if(r.ok){ document.getElementById('noteText').value = ''; loadNotes(c.pflege_name); }
+  };
+}
+
+function fmtEuro(v){ return (Number(v)||0).toFixed(2).replace('.', ','); }
+
+async function loadNotes(name){
+  const r = await callFn('portal-data', { token: session.token, action:'list_notes', customer_name: name });
+  const el = document.getElementById('notesList');
+  if(!el) return;
+  if(!r.ok){ el.innerHTML = `<div class="empty">${esc(r.message||'Notizen konnten nicht geladen werden.')}</div>`; return; }
+  const notes = r.notes || [];
+  el.innerHTML = notes.length ? notes.map(n => `
+    <div class="noteItem">
+      <div class="meta">${esc(n.display_name||n.username||'')} · ${esc((n.created_at||'').replace('T',' ').slice(0,16))}</div>
+      <div>${esc(n.text)}</div>
+    </div>`).join('') : '<div class="empty">Noch keine Notizen.</div>';
+}
+
+document.getElementById('loginBtn').onclick = doLogin;
+document.getElementById('loginCode').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('logoutBtn').onclick = doLogout;
+document.getElementById('custSearch').addEventListener('input', renderCustList);
+
+loadSession();
+if(session && session.expires_at && new Date(session.expires_at) > new Date()){
+  showApp();
+} else {
+  clearSession();
+}
+</script>
+</body></html>
