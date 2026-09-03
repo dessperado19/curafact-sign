@@ -60,7 +60,7 @@ button:disabled{opacity:.5;cursor:default}
   <div id="loginBox">
     <img src="https://dessperado19.github.io/curafact-sign/logo.png" onerror="this.style.display='none'">
     <h1 style="margin-top:6px">CuraFact Portal</h1>
-    <p class="sub">Kundendaten, Notizen und Termine von unterwegs</p>
+    <p class="sub">Kundendaten, Notizen und ClickUp von unterwegs</p>
     <div class="box" style="text-align:left">
       <label>Benutzername</label>
       <input type="text" id="loginUser" autocomplete="username" placeholder="z.B. onder">
@@ -75,7 +75,7 @@ button:disabled{opacity:.5;cursor:default}
     <div id="appHead">
       <div>
         <h1 style="margin:0">CuraFact Portal</h1>
-        <p class="sub" style="margin:2px 0 0">Kundendaten, Notizen und Termine</p>
+        <p class="sub" style="margin:2px 0 0">Kundendaten, Notizen und ClickUp</p>
       </div>
       <div class="row" style="align-items:center">
         <span class="who">Angemeldet als <strong id="whoName"></strong></span>
@@ -192,8 +192,6 @@ async function openCustomer(name){
 }
 
 function renderDetail(c){
-  const besuche = Array.isArray(c.beratungsbesuche) ? c.beratungsbesuche : [];
-  const letzterTermin = besuche.length ? (besuche[besuche.length-1].status||{}).naechster_termin : '';
   const calc = c._last_calculation;
 
   let html = `<div class="box">
@@ -228,14 +226,9 @@ function renderDetail(c){
     </div>`;
   }
 
-  html += `<div class="box"><h2>Nächster Beratungstermin</h2>
-    <p class="v">Zuletzt bekannt: <b>${esc(letzterTermin||'—')}</b></p>
-    <p class="mini">Neues Datum setzen (wird an ClickUp gesendet, dort läuft der eigentliche Kalender):</p>
-    <div class="row" style="margin-top:6px">
-      <input type="text" id="terminInput" placeholder="TT.MM.JJJJ" style="max-width:180px">
-      <button class="primary" id="terminBtn">Termin senden</button>
-    </div>
-    <div class="err" id="terminErr"></div>
+  html += `<div class="box"><h2>ClickUp</h2>
+    <p class="mini">Öffnet den Task in ClickUp - dort stehen Checkliste, Status und ein ggf. angehängtes Berechnungs-PDF.</p>
+    <div class="row" id="clickupLinks" style="margin-top:6px"><span class="empty">Lade …</span></div>
   </div>`;
 
   html += `<div class="box"><h2>Notizen</h2>
@@ -247,18 +240,7 @@ function renderDetail(c){
 
   document.getElementById('detailBox').innerHTML = html;
 
-  document.getElementById('terminBtn').onclick = async () => {
-    const datum = document.getElementById('terminInput').value.trim();
-    const errEl = document.getElementById('terminErr');
-    errEl.textContent = '';
-    if(!datum){ errEl.textContent = 'Bitte ein Datum eingeben.'; return; }
-    const btn = document.getElementById('terminBtn');
-    btn.disabled = true;
-    const r = await callFn('portal-set-termin', { token: session.token, pflege_name: c.pflege_name, datum });
-    btn.disabled = false;
-    if(!r.ok){ errEl.textContent = r.message || 'Termin konnte nicht gesetzt werden.'; return; }
-    errEl.style.color = '#0b7b32'; errEl.textContent = r.message;
-  };
+  loadClickupLinks(c.pflege_name);
 
   document.getElementById('noteBtn').onclick = async () => {
     const text = document.getElementById('noteText').value.trim();
@@ -272,6 +254,17 @@ function renderDetail(c){
 }
 
 function fmtEuro(v){ return (Number(v)||0).toFixed(2).replace('.', ','); }
+
+async function loadClickupLinks(name){
+  const el = document.getElementById('clickupLinks');
+  if(!el) return;
+  const r = await callFn('portal-data', { token: session.token, action:'get_clickup_links', name });
+  if(!r.ok){ el.innerHTML = `<span class="empty">${esc(r.message||'ClickUp-Verknüpfung konnte nicht geladen werden.')}</span>`; return; }
+  const links = [];
+  if(r.pflegekunden_url) links.push(`<a href="${esc(r.pflegekunden_url)}" target="_blank" rel="noopener"><button>Pflegekunden-Task öffnen ↗</button></a>`);
+  if(r.pflegeberatung_url) links.push(`<a href="${esc(r.pflegeberatung_url)}" target="_blank" rel="noopener"><button>Pflegeberatungs-Task öffnen ↗</button></a>`);
+  el.innerHTML = links.length ? links.join('') : '<span class="empty">Noch kein ClickUp-Task für diesen Kunden gefunden.</span>';
+}
 
 async function loadNotes(name){
   const r = await callFn('portal-data', { token: session.token, action:'list_notes', customer_name: name });
