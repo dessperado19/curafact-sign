@@ -251,9 +251,9 @@ function renderDetail(c){
     <label style="margin-top:10px">Neue Notiz</label>
     <div class="row">
       ${c.pflegeberatung_kunde ? `<select id="noteKontext" style="max-width:160px">
-        <option value="beides" selected>Betrifft: Beides</option>
-        <option value="abrechnung">Betrifft: Abrechnung</option>
+        <option value="abrechnung" selected>Betrifft: Abrechnung</option>
         <option value="beratung">Betrifft: Beratung</option>
+        <option value="beides">Betrifft: Beides</option>
       </select>` : ''}
     </div>
     <textarea id="noteText" placeholder="z.B. Kunde bittet um Rückruf wegen ..." style="margin-top:6px"></textarea>
