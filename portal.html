@@ -47,7 +47,19 @@ button:disabled{opacity:.5;cursor:default}
 .field .k{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
 .field .v{font-size:14.5px;color:var(--text);margin-top:2px}
 
-.calcBox{background:#f2f8fc;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:6px}
+.calcBox{background:#f2f8fc;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px}
+.calcBox h4{margin:0 0 8px;font-size:12.5px;color:var(--blue);text-transform:uppercase;letter-spacing:.03em}
+.calcHead{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:4px}
+.calcHead h3{margin:0 0 4px;font-size:15px;color:var(--blue)}
+.calcHead p{margin:2px 0}
+.calcTableWrap{overflow-x:auto}
+.calcTable{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.calcTable th,.calcTable td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+.calcTable .num{text-align:right;font-variant-numeric:tabular-nums}
+.calcTable tfoot td{border-top:2px solid var(--border);border-bottom:0}
+.calcTable tr.brutto{background:#fef3c7}
+.calcTable tr.abzug{background:#fee2e2}
+.calcTable tr.netto{background:#dcfce7}
 .noteItem{padding:10px 0;border-bottom:1px solid var(--border)}
 .noteItem:last-child{border-bottom:0}
 .noteItem .meta{font-size:11.5px;color:var(--muted);margin-bottom:2px}
@@ -119,6 +131,7 @@ async function callFn(name, body){
 let session = null; // {token, user}
 let customers = [];
 let currentCustomer = null;
+let lastBerechnung = null; // {html, title} - fuer den Drucken-Button
 
 function saveSession(s){ session = s; try{ sessionStorage.setItem('curafact_portal_session', JSON.stringify(s)); }catch(e){} }
 function loadSession(){ try{ const raw = sessionStorage.getItem('curafact_portal_session'); if(raw) session = JSON.parse(raw); }catch(e){} }
@@ -216,14 +229,14 @@ function renderDetail(c){
 
   if(calc && calc.result){
     const res = calc.result;
+    lastBerechnung = { html: buildBerechnungHtml(res, calc.at), title: 'Berechnung – ' + (res.kunde && res.kunde.name || c.pflege_name || '') };
     html += `<div class="box"><h2>Letzte Berechnung</h2>
       <p class="mini">Stand: ${esc(calc.at||'')} — aus der Desktop-App, das Portal rechnet nicht selbst neu.</p>
-      <div class="calcBox">
-        <div class="v"><b>Brutto:</b> ${esc(fmtEuro(res.brutto))} €</div>
-        <div class="v"><b>Abzug:</b> ${esc(fmtEuro(res.abzug))} € (${esc(res.abzugPct||0)}%)</div>
-        <div class="v"><b>Netto:</b> ${esc(fmtEuro(res.netto))} €</div>
-      </div>
+      ${lastBerechnung.html}
+      <button class="primary" id="printCalcBtn" style="margin-top:10px">Berechnung drucken</button>
     </div>`;
+  } else {
+    lastBerechnung = null;
   }
 
   html += `<div class="box"><h2>ClickUp</h2>
@@ -240,6 +253,10 @@ function renderDetail(c){
 
   document.getElementById('detailBox').innerHTML = html;
 
+  if(lastBerechnung){
+    document.getElementById('printCalcBtn').onclick = () => printBerechnung(lastBerechnung.html, lastBerechnung.title);
+  }
+
   loadClickupLinks(c.pflege_name);
 
   document.getElementById('noteBtn').onclick = async () => {
@@ -254,6 +271,83 @@ function renderDetail(c){
 }
 
 function fmtEuro(v){ return (Number(v)||0).toFixed(2).replace('.', ','); }
+
+function buildBerechnungHtml(res, atStr){
+  const k = res.kunde || {};
+  const vpRows = (res.vpRows||[]).map(x => `<tr><td>${esc(x.jahr)}</td><td>${esc(x.start||'')}</td><td>${esc(x.ende||'')}</td><td class="num">${fmtEuro(x.betrag)} €</td></tr>`).join('')
+    || '<tr><td colspan="4" class="mini">Keine Verhinderungspflege eingetragen.</td></tr>';
+  const pgRows = (res.details||[]).map(d => `<tr><td>PG ${esc(d.stufe)}</td><td>${esc(d.jahr)}</td><td class="num">${esc(d.monate)}</td><td class="num">${fmtEuro(d.pflegegeld_100)} €</td><td class="num">${fmtEuro(d.zukunftsbetrag_mit_entlastung)} €</td><td class="num">${fmtEuro(d.zukunftsbetrag_ohne_entlastung)} €</td><td class="num">${fmtEuro(d.monat_betrag)} €</td><td class="num">${fmtEuro(d.gesamt)} €</td></tr>`).join('')
+    || '<tr><td colspan="8" class="mini">Keine anrechenbaren Pflegegrad-Phasen.</td></tr>';
+  return `
+    <div class="calcHead">
+      <div><h3>Auswertung – ${esc(k.name||'')}</h3><p class="mini">${esc(k.anschrift||'')}</p><p class="mini">${esc(k.kasse||'')}${k.kvnr?' · KVNR: '+esc(k.kvnr):''}</p></div>
+      <div class="mini">Stand: ${esc(atStr||'')}</div>
+    </div>
+    <div class="calcBox">
+      <h4>Verhinderungspflege / Kurzzeitpflege (Restbeträge)</h4>
+      <div class="calcTableWrap"><table class="calcTable"><thead><tr><th>Jahr</th><th>Von</th><th>Bis</th><th class="num">Restbetrag</th></tr></thead>
+      <tbody>${vpRows}</tbody>
+      <tfoot><tr><td colspan="3" class="num"><b>Summe</b></td><td class="num"><b>${fmtEuro(res.sumVP)} €</b></td></tr></tfoot></table></div>
+    </div>
+    <div class="calcBox">
+      <h4>Pflegegrade – Detaillierte Berechnung</h4>
+      <div class="calcTableWrap"><table class="calcTable"><thead><tr><th>PG</th><th>Jahr</th><th class="num">Monate</th><th class="num">Aktuelles PG (100%)</th><th class="num">Zukunftsbetrag (mit)</th><th class="num">Zukunftsbetrag (ohne)</th><th class="num">Monatlich rückw.</th><th class="num">Gesamt rückw.</th></tr></thead>
+      <tbody>${pgRows}</tbody>
+      <tfoot><tr><td colspan="7" class="num"><b>Summe Rückwirkend</b></td><td class="num"><b>${fmtEuro(res.sumPG)} €</b></td></tr></tfoot></table></div>
+    </div>
+    <div class="calcBox">
+      <table class="calcTable">
+        <tbody>
+          <tr><td>Gesamt Rückwirkend</td><td class="num"><b>${fmtEuro(res.sumPG)} €</b></td></tr>
+          <tr><td>+ Verhinderungspflege</td><td class="num"><b>${fmtEuro(res.sumVP)} €</b></td></tr>
+          <tr class="brutto"><td><b>= Bruttogesamt</b></td><td class="num"><b>${fmtEuro(res.brutto)} €</b></td></tr>
+          <tr class="abzug"><td><b>Abzug (${fmtEuro(res.abzugPct)} %)</b></td><td class="num"><b>− ${fmtEuro(res.abzug)} €</b></td></tr>
+          <tr class="netto"><td><b>Nettogesamt</b></td><td class="num"><b>${fmtEuro(res.netto)} €</b></td></tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function printBerechnung(html, title){
+  // Druckt ueber ein verstecktes iframe in derselben Seite statt window.open() -
+  // so gibt es kein Risiko, dass Safaris Popup-Blocker den Druckdialog verhindert.
+  let iframe = document.getElementById('print_iframe');
+  if(!iframe){
+    iframe = document.createElement('iframe');
+    iframe.id = 'print_iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+  }
+  const w = iframe.contentWindow;
+  const styles = `<style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#16324f;margin:0}
+    .page{padding:18px}
+    .calcHead{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:10px}
+    .calcHead h3{margin:0 0 4px;color:#0E4A8B}
+    .calcHead p{margin:2px 0;color:#66788a}
+    .mini{font-size:12px;color:#66788a}
+    .calcBox{border:1px solid #dbe7f0;border-radius:10px;padding:12px;margin:10px 0}
+    .calcBox h4{margin:0 0 8px;color:#0E4A8B;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}
+    .calcTable{width:100%;border-collapse:collapse;font-size:11.5px}
+    .calcTable th,.calcTable td{padding:5px 6px;border-bottom:1px solid #dbe7f0;text-align:left;vertical-align:top}
+    .calcTable .num{text-align:right}
+    .calcTable tr.brutto{background:#fef3c7}
+    .calcTable tr.abzug{background:#fee2e2}
+    .calcTable tr.netto{background:#dcfce7}
+    @media print{.page{padding:0}.calcBox{break-inside:avoid}@page{size:A4 portrait;margin:10mm}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style>`;
+  w.document.open();
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(title||'Berechnung')}</title>${styles}</head><body><div class="page">${html}</div></body></html>`);
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 150);
+}
 
 async function loadClickupLinks(name){
   const el = document.getElementById('clickupLinks');
