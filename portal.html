@@ -64,6 +64,7 @@ button:disabled{opacity:.5;cursor:default}
 .noteItem:last-child{border-bottom:0}
 .noteItem .meta{font-size:11.5px;color:var(--muted);margin-bottom:2px}
 .empty{color:var(--muted);font-size:13px;padding:8px 0}
+.badge{display:inline-block;background:#eef4fa;color:var(--blue);font-weight:700;font-size:10.5px;padding:1px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.02em}
 </style>
 </head>
 <body>
@@ -245,9 +246,17 @@ function renderDetail(c){
   </div>`;
 
   html += `<div class="box"><h2>Notizen</h2>
+    <p class="mini">Wird zusätzlich als Kommentar an den passenden ClickUp-Task gehängt.</p>
     <div id="notesList"><div class="empty">Lade …</div></div>
     <label style="margin-top:10px">Neue Notiz</label>
-    <textarea id="noteText" placeholder="z.B. Kunde bittet um Rückruf wegen ..."></textarea>
+    <div class="row">
+      ${c.pflegeberatung_kunde ? `<select id="noteKontext" style="max-width:160px">
+        <option value="beides" selected>Betrifft: Beides</option>
+        <option value="abrechnung">Betrifft: Abrechnung</option>
+        <option value="beratung">Betrifft: Beratung</option>
+      </select>` : ''}
+    </div>
+    <textarea id="noteText" placeholder="z.B. Kunde bittet um Rückruf wegen ..." style="margin-top:6px"></textarea>
     <button class="primary" id="noteBtn" style="margin-top:8px">Notiz speichern</button>
   </div>`;
 
@@ -257,14 +266,16 @@ function renderDetail(c){
     document.getElementById('printCalcBtn').onclick = () => printBerechnung(lastBerechnung.html, lastBerechnung.title);
   }
 
-  loadClickupLinks(c.pflege_name);
+  loadClickupLinks(c.pflege_name, !!c.pflegeberatung_kunde);
 
   document.getElementById('noteBtn').onclick = async () => {
     const text = document.getElementById('noteText').value.trim();
     if(!text) return;
+    const kontextEl = document.getElementById('noteKontext');
+    const kontext = kontextEl ? kontextEl.value : 'abrechnung';
     const btn = document.getElementById('noteBtn');
     btn.disabled = true;
-    const r = await callFn('portal-data', { token: session.token, action:'add_note', customer_name: c.pflege_name, text });
+    const r = await callFn('portal-data', { token: session.token, action:'add_note', customer_name: c.pflege_name, text, kontext });
     btn.disabled = false;
     if(r.ok){ document.getElementById('noteText').value = ''; loadNotes(c.pflege_name); }
   };
@@ -349,10 +360,10 @@ function printBerechnung(html, title){
   setTimeout(() => w.print(), 150);
 }
 
-async function loadClickupLinks(name){
+async function loadClickupLinks(name, pflegeberatung){
   const el = document.getElementById('clickupLinks');
   if(!el) return;
-  const r = await callFn('portal-data', { token: session.token, action:'get_clickup_links', name });
+  const r = await callFn('portal-data', { token: session.token, action:'get_clickup_links', name, pflegeberatung: !!pflegeberatung });
   if(!r.ok){ el.innerHTML = `<span class="empty">${esc(r.message||'ClickUp-Verknüpfung konnte nicht geladen werden.')}</span>`; return; }
   const links = [];
   if(r.pflegekunden_url) links.push(`<a href="${esc(r.pflegekunden_url)}" target="_blank" rel="noopener"><button>Pflegekunden-Task öffnen ↗</button></a>`);
@@ -360,6 +371,7 @@ async function loadClickupLinks(name){
   el.innerHTML = links.length ? links.join('') : '<span class="empty">Noch kein ClickUp-Task für diesen Kunden gefunden.</span>';
 }
 
+const NOTE_KONTEXT_LABEL = { abrechnung: 'Abrechnung', beratung: 'Beratung', beides: 'Beides' };
 async function loadNotes(name){
   const r = await callFn('portal-data', { token: session.token, action:'list_notes', customer_name: name });
   const el = document.getElementById('notesList');
@@ -368,7 +380,7 @@ async function loadNotes(name){
   const notes = r.notes || [];
   el.innerHTML = notes.length ? notes.map(n => `
     <div class="noteItem">
-      <div class="meta">${esc(n.display_name||n.username||'')} · ${esc((n.created_at||'').replace('T',' ').slice(0,16))}</div>
+      <div class="meta">${esc(n.display_name||n.username||'')} · ${esc((n.created_at||'').replace('T',' ').slice(0,16))}${n.kontext ? ` · <span class="badge">${esc(NOTE_KONTEXT_LABEL[n.kontext]||n.kontext)}</span>` : ''}</div>
       <div>${esc(n.text)}</div>
     </div>`).join('') : '<div class="empty">Noch keine Notizen.</div>';
 }
