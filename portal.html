@@ -65,6 +65,9 @@ button:disabled{opacity:.5;cursor:default}
 .noteItem .meta{font-size:11.5px;color:var(--muted);margin-bottom:2px}
 .empty{color:var(--muted);font-size:13px;padding:8px 0}
 .badge{display:inline-block;background:#eef4fa;color:var(--blue);font-weight:700;font-size:10.5px;padding:1px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.02em}
+.activityItem{padding:8px 0;border-bottom:1px solid var(--border);font-size:13.5px;line-height:1.5}
+.activityItem:last-child{border-bottom:0}
+.activityItem .badge{margin-right:6px;vertical-align:1px}
 </style>
 </head>
 <body>
@@ -241,8 +244,9 @@ function renderDetail(c){
   }
 
   html += `<div class="box"><h2>ClickUp</h2>
-    <p class="mini">Öffnet den Task in ClickUp - dort stehen Checkliste, Status und ein ggf. angehängtes Berechnungs-PDF.</p>
+    <p class="mini">Verlauf direkt hier, oder den Task in ClickUp öffnen (Status, ggf. angehängtes Berechnungs-PDF).</p>
     <div class="row" id="clickupLinks" style="margin-top:6px"><span class="empty">Lade …</span></div>
+    <div id="clickupActivity" style="margin-top:10px"></div>
   </div>`;
 
   html += `<div class="box"><h2>Notizen</h2>
@@ -362,13 +366,24 @@ function printBerechnung(html, title){
 
 async function loadClickupLinks(name, pflegeberatung){
   const el = document.getElementById('clickupLinks');
+  const activityEl = document.getElementById('clickupActivity');
   if(!el) return;
   const r = await callFn('portal-data', { token: session.token, action:'get_clickup_links', name, pflegeberatung: !!pflegeberatung });
-  if(!r.ok){ el.innerHTML = `<span class="empty">${esc(r.message||'ClickUp-Verknüpfung konnte nicht geladen werden.')}</span>`; return; }
+  if(!r.ok){
+    el.innerHTML = `<span class="empty">${esc(r.message||'ClickUp-Verknüpfung konnte nicht geladen werden.')}</span>`;
+    if(activityEl) activityEl.innerHTML = '';
+    return;
+  }
   const links = [];
   if(r.pflegekunden_url) links.push(`<a href="${esc(r.pflegekunden_url)}" target="_blank" rel="noopener"><button>Pflegekunden-Task öffnen ↗</button></a>`);
   if(r.pflegeberatung_url) links.push(`<a href="${esc(r.pflegeberatung_url)}" target="_blank" rel="noopener"><button>Pflegeberatungs-Task öffnen ↗</button></a>`);
   el.innerHTML = links.length ? links.join('') : '<span class="empty">Noch kein ClickUp-Task für diesen Kunden gefunden.</span>';
+  if(activityEl){
+    const activity = (r.activity || []).slice().reverse();
+    activityEl.innerHTML = activity.length
+      ? activity.map(a => `<div class="activityItem"><span class="badge">${esc(a.checklist)}</span> ${esc(a.text)}</div>`).join('')
+      : '<div class="empty">Noch keine Aktivität erfasst.</div>';
+  }
 }
 
 const NOTE_KONTEXT_LABEL = { abrechnung: 'Abrechnung', beratung: 'Beratung', beides: 'Beides' };
