@@ -285,12 +285,14 @@ function rechnePflegegrade(phasen){
   (phasen||[]).forEach(function(ph){
     var stufe=Number(ph.stufe)||2;
     var dVon=calcParseISO(ph.von);
-    var dBisEingetragen=calcParseISO(ph.bis);
-    // Ohne eingetragenes "Bis" laeuft die Phase automatisch bis heute weiter
-    // (unabhaengig vom "fortlaufend"-Haekchen) - sie endet erst durch ein
-    // explizit eingetragenes Bis-Datum oder durch Deaktivieren des Kunden.
-    var dBis=dBisEingetragen||today;
-    if(!dVon||!dBis||dBis<dVon)return;
+    // Jede Phase gilt ab ihrem "Von" bis heute als laufend - unabhaengig von
+    // "fortlaufend"-Haekchen oder eingetragenem "Bis". Ueberlappende Monate
+    // werden weiter unten der Phase mit dem spaeteren "Von" zugeordnet,
+    // dadurch uebernimmt eine neuere Phase automatisch korrekt ab ihrem
+    // Start - eine Phase endet effektiv nur durch eine spaetere Phase oder
+    // durch Deaktivieren des Kunden.
+    var dBis=today;
+    if(!dVon||dBis<dVon)return;
     var startM=calcFirstOfMonth(dVon);
     var endM=calcFirstOfMonth(dBis);
     var minM=new Date(CALC_TABLE_MIN_YEAR,0,1,12);

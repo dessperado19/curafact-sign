@@ -145,6 +145,8 @@ button:disabled{opacity:.5;cursor:default}
     <div id="faQrBox"></div>
     <p id="faUrl"></p>
     <div class="row" style="margin-top:10px">
+      <button id="faOpenBtn">Link öffnen</button>
+      <button id="faShareBtn">Teilen</button>
       <button id="faCopyBtn">Link kopieren</button>
       <button id="faCloseBtn">Schließen</button>
     </div>
@@ -204,12 +206,15 @@ function rechnePflegegrade(phasen){
   (phasen||[]).forEach(ph=>{
     const stufe=Number(ph.stufe)||2;
     const dVon=calcParseDE(ph.von);
-    const dBisEingetragen=calcParseDE(ph.bis);
-    // Ohne eingetragenes "Bis" laeuft die Phase automatisch bis heute weiter
-    // (unabhaengig vom "fortlaufend"-Haekchen) - sie endet erst durch ein
-    // explizit eingetragenes Bis-Datum oder durch Deaktivieren des Kunden.
-    const dBis=dBisEingetragen||today;
-    if(!dVon||!dBis||dBis<dVon)return;
+    // Jede Phase gilt ab ihrem "Von" bis heute als laufend - unabhaengig von
+    // "fortlaufend"-Haekchen oder eingetragenem "Bis" (das nur fuer die
+    // interne monatliche Abrechnung in der App relevant ist, nicht hier).
+    // Ueberlappende Monate werden weiter unten der Phase mit dem spaeteren
+    // "Von" zugeordnet, dadurch uebernimmt eine neuere Phase automatisch
+    // korrekt ab ihrem Start - eine Phase endet effektiv nur durch eine
+    // spaetere Phase oder durch Deaktivieren des Kunden.
+    const dBis=today;
+    if(!dVon||dBis<dVon)return;
     let startM=calcFirstOfMonth(dVon);
     const endM=calcFirstOfMonth(dBis);
     const minM=new Date(CALC_TABLE_MIN_YEAR,0,1,12);
@@ -751,6 +756,14 @@ async function startFernaufnahme(action, label, customer){
   const qrBox = document.getElementById('faQrBox');
   qrBox.innerHTML = '';
   if(window.QRCode){ faQr = new QRCode(qrBox, { text: url, width: 190, height: 190 }); }
+  document.getElementById('faOpenBtn').onclick = () => window.open(url, '_blank', 'noopener');
+  document.getElementById('faShareBtn').onclick = () => {
+    if(navigator.share){
+      navigator.share({ title: 'CuraFact Fernaufnahme', text: label ? ('Fernaufnahme für ' + label) : 'Fernaufnahme', url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => { document.getElementById('faShareBtn').textContent = 'Kopiert ✓'; setTimeout(() => document.getElementById('faShareBtn').textContent = 'Teilen', 1500); });
+    }
+  };
   document.getElementById('faCopyBtn').onclick = () => {
     navigator.clipboard.writeText(url).then(() => { document.getElementById('faCopyBtn').textContent = 'Kopiert ✓'; setTimeout(() => document.getElementById('faCopyBtn').textContent = 'Link kopieren', 1500); });
   };
