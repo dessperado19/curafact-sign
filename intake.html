@@ -156,6 +156,7 @@ canvas{width:100%;height:130px;background:#fff;border:1px solid #d7dce5;border-r
     <div class="box">
       <h2>Berechnung / Nachweis</h2>
       <p class="sub" style="margin:0 0 4px">Zeigt, auf Basis der oben eingetragenen Pflegegrade (und unten der Verhinderungspflege), was zukünftig laufend möglich ist und - falls gewünscht - was rückwirkend beantragt werden kann.</p>
+      <div class="checkline"><input type="checkbox" id="calc_rueckwirkend"><span>Rückwirkend beantragen</span></div>
       <div class="checkline"><input type="checkbox" id="calc_show_paragraphs" checked><span>Rechtsgrundlagen (§) mit anzeigen</span></div>
       <div id="calcParagraphNote">Bitte die §-Angaben vor Weitergabe an den Kunden fachlich gegenprüfen.</div>
       <button type="button" class="addBtn" id="calcShowBtn">Berechnung anzeigen</button>
@@ -611,7 +612,7 @@ function initMainRole(){
 
   document.getElementById('calcShowBtn').onclick=function(){
     var res=rechnePflegegrade(pgList);
-    var rueckwirkend=document.getElementById('rueckwirkend_beantragen').checked;
+    var rueckwirkend=document.getElementById('calc_rueckwirkend').checked;
     var showParagraphs=document.getElementById('calc_show_paragraphs').checked;
 
     var vpSum=0;
