@@ -420,20 +420,20 @@ function renderCustList(){
   const filtered = customers.filter(c => !q || (c.name||'').toLowerCase().includes(q));
   if(!filtered.length){ document.getElementById('custList').innerHTML = '<div class="empty">Keine Kunden gefunden.</div>'; return; }
   document.getElementById('custList').innerHTML = filtered.map(c => `
-    <div class="custItem ${currentCustomer===c.name?'sel':''}" data-name="${esc(c.name)}">
+    <div class="custItem ${currentCustomer===c.name?'sel':''}" data-name="${esc(c.name)}" data-file="${esc(c.file||'')}">
       <strong>${esc(c.name)}</strong>
       <span>${esc(c.kasse||'—')}${c.pflegegrad?' · '+esc(c.pflegegrad):''}</span>
     </div>`).join('');
   document.querySelectorAll('.custItem').forEach(el => {
-    el.onclick = () => openCustomer(el.dataset.name);
+    el.onclick = () => openCustomer(el.dataset.name, el.dataset.file);
   });
 }
 
-async function openCustomer(name){
+async function openCustomer(name, file){
   currentCustomer = name;
   renderCustList();
   document.getElementById('detailBox').innerHTML = '<div class="box"><p class="empty">Lade …</p></div>';
-  const r = await callFn('portal-data', { token: session.token, action: 'get_customer', name });
+  const r = await callFn('portal-data', { token: session.token, action: 'get_customer', name, file });
   if(!r.ok){
     document.getElementById('detailBox').innerHTML = `<div class="box"><p class="empty">${esc(r.message||'Kunde konnte nicht geladen werden.')}</p></div>`;
     return;
