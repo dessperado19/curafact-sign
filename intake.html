@@ -79,6 +79,7 @@ canvas{width:100%;height:130px;background:#fff;border:1px solid #d7dce5;border-r
 .calcTable th{font-size:11px;color:#667;text-transform:uppercase;letter-spacing:.02em}
 .calcTable td.num,.calcTable th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .calcTotalRow td{font-weight:700;color:var(--blue);border-top:2px solid #c9d9ec;border-bottom:0}
+.calcTable td[colspan]{border-bottom:0;padding:3px 0}
 .calcLegal p{font-size:12px;color:#556}
 .refTableWrap{overflow-x:auto}
 #calcParagraphNote{font-size:11px;color:#889;margin-top:4px}
@@ -321,16 +322,40 @@ function rechnePflegegrade(phasen){
     } else if(!futureRate||monthDate>=futureRate._monthDate){
       futureRate={
         _monthDate:monthDate, jahr:jahrAnzeige, stufe:rec.stufe,
-        pflegegeld:pg, monat_betrag_mit:monatBetragMit, monat_betrag_ohne:monatBetragOhne,
+        pflegegeld:pg, pflegegeld_nach_umwandlung:0.6*pg, umwandlungsbetrag:0.4*psl, entlastungsleistung:entl,
+        gesamt_mit:zukunftMit, gesamt_ohne:zukunftOhne,
+        monat_betrag_mit:monatBetragMit, monat_betrag_ohne:monatBetragOhne,
         monat_betrag:monatDelta
       };
     }
   });
 
+  pastDetails.sort(function(a,b){return (a.jahr-b.jahr)||(a.monat-b.monat)});
+
+  /* Nach Jahr (und Betrag, falls sich der Satz innerhalb eines Jahres
+     aendert, z.B. Pflegegrad-Wechsel) gruppieren statt jeden Monat
+     einzeln aufzulisten. */
+  var groupMap=new Map();
+  var groupOrder=[];
+  pastDetails.forEach(function(d){
+    var betragKey=Math.round(d.monat_betrag*100);
+    var key=d.jahr+'|'+betragKey;
+    var g=groupMap.get(key);
+    if(!g){
+      g={jahr:d.jahr, monate:0, betragProMonat:d.monat_betrag, summe:0};
+      groupMap.set(key,g);
+      groupOrder.push(key);
+    }
+    g.monate+=1;
+    g.summe+=d.monat_betrag;
+  });
+  var pastGrouped=groupOrder.map(function(k){return groupMap.get(k)});
+
   return {
     futureRate:futureRate,
     sumRueckwirkend:sumRueckwirkend,
-    pastDetails:pastDetails.sort(function(a,b){return (a.jahr-b.jahr)||(a.monat-b.monat)}),
+    pastDetails:pastDetails,
+    pastGrouped:pastGrouped,
     cutoffYear:cutoff.getFullYear()
   };
 }
@@ -341,23 +366,34 @@ function calcReferenceTable(){
     var pg=PFLEGEGELD_TBL[jahr][stufe], psl=PSL_TBL[jahr][stufe], entl=ENTL_TBL[jahr];
     var umwandlung=0.4*psl, pgNachUmwandlung=0.6*pg;
     var gesamtZukuenftig=umwandlung+pgNachUmwandlung+entl;
-    var rueckwirkend=gesamtZukuenftig-pg;
-    var rueckwirkendOhneNbh=rueckwirkend-entl;
-    return {stufe:stufe, pg:pg, psl:psl, umwandlung:umwandlung, pgNachUmwandlung:pgNachUmwandlung, entl:entl, gesamtZukuenftig:gesamtZukuenftig, rueckwirkend:rueckwirkend, rueckwirkendOhneNbh:rueckwirkendOhneNbh};
+    var gesamtZukuenftigOhne=umwandlung+pgNachUmwandlung;
+    var mehrMoeglich=gesamtZukuenftig-pg;
+    var mehrMoeglichOhne=gesamtZukuenftigOhne-pg;
+    return {stufe:stufe, pg:pg, psl:psl, umwandlung:umwandlung, pgNachUmwandlung:pgNachUmwandlung, entl:entl, gesamtZukuenftig:gesamtZukuenftig, gesamtZukuenftigOhne:gesamtZukuenftigOhne, mehrMoeglich:mehrMoeglich, mehrMoeglichOhne:mehrMoeglichOhne};
   });
   var head='<tr><th></th>'+rows.map(function(r){return '<th class="num">PG '+r.stufe+'</th>'}).join('')+'</tr>';
-  function row(label,key,suffix){
-    return '<tr><td>'+label+'</td>'+rows.map(function(r){return '<td class="num">'+eur(r[key])+(suffix||'')+'</td>'}).join('')+'</tr>';
+  function row(label,key){
+    return '<tr><td>'+label+'</td>'+rows.map(function(r){return '<td class="num">'+eur(r[key])+'</td>'}).join('')+'</tr>';
+  }
+  function blankRow(){
+    return '<tr><td colspan="'+(rows.length+1)+'">&nbsp;</td></tr>';
+  }
+  function totalRow(label,key){
+    return '<tr class="calcTotalRow"><td>'+label+'</td>'+rows.map(function(r){return '<td class="num">'+eur(r[key])+'</td>'}).join('')+'</tr>';
   }
   return '<div class="refTableWrap"><table class="calcTable">'+
     '<thead>'+head+'</thead><tbody>'+
     row('Pflegegeld','pg')+
     row('Pflegesachleistung','psl')+
-    row('davon Umwandlung (40%)','umwandlung')+
-    row('Pflegegeld nach Umwandlung (60%)','pgNachUmwandlung')+
-    row('+ Entlastungsbetrag / Nachbarschaftshilfe','entl')+
-    '<tr class="calcTotalRow"><td>= monatlich zusätzlich möglich (laufend)</td>'+rows.map(function(r){return '<td class="num">'+eur(r.rueckwirkend)+'</td>'}).join('')+'</tr>'+
-    row('davon ohne Nachbarschaftshilfe','rueckwirkendOhneNbh')+
+    blankRow()+
+    row('Umwandlung (zweckgebunden)','umwandlung')+
+    row('Pflegegeld nach Umwandlung (frei verwendbar)','pgNachUmwandlung')+
+    row('Entlastungsleistung (zweckgebunden)','entl')+
+    totalRow('Gesamt Zukünftig','gesamtZukuenftig')+
+    row('Gesamt Zukünftig ohne Entlastung','gesamtZukuenftigOhne')+
+    blankRow()+
+    row('Monatlich mehr möglich für die Pflege','mehrMoeglich')+
+    row('Monatlich mehr möglich für die Pflege, ohne Entlastungsleistung','mehrMoeglichOhne')+
     '</tbody></table></div>'+
     '<p class="mini" style="font-size:11px;color:#889;margin-top:6px">Werte für '+jahr+', Referenzwerte pro Pflegegrad - unabhängig von den oben eingetragenen individuellen Zeiträumen.</p>';
 }
@@ -573,12 +609,14 @@ function initMainRole(){
       '<p>'+esc(document.getElementById('pflege_kasse').value||'')+'</p></div></div>';
 
     if(res.futureRate){
+      var f=res.futureRate;
       html+='<div class="calcBox"><h4>Zukünftig – laufend ab jetzt</h4>'+
-        '<div class="calcRow"><span class="k">Pflegegeld (100%), PG '+res.futureRate.stufe+'</span><span class="v">'+eur(res.futureRate.pflegegeld)+' / Monat</span></div>'+
-        '<div class="calcRow"><span class="k">Zusätzlich durch Umwandlung, mit Entlastungsbetrag/Nachbarschaftshilfe</span><span class="v">'+eur(res.futureRate.monat_betrag_mit)+' / Monat</span></div>'+
-        '<div class="calcRow"><span class="k">Zusätzlich durch Umwandlung, ohne Entlastungsbetrag/Nachbarschaftshilfe</span><span class="v">'+eur(res.futureRate.monat_betrag_ohne)+' / Monat</span></div>'+
-        '<div class="calcRow total"><span class="k">Monatlich zusätzlich möglich (laufend)</span><span class="v">'+eur(res.futureRate.monat_betrag)+' / Monat</span></div>'+
-        '<div class="calcRow"><span class="k">Hochgerechnet auf 12 Monate</span><span class="v">'+eur(res.futureRate.monat_betrag*12)+' / Jahr</span></div>'+
+        '<div class="calcRow"><span class="k">Pflegegeld (frei verfügbar)</span><span class="v">'+eur(f.pflegegeld_nach_umwandlung)+' / Monat</span></div>'+
+        '<div class="calcRow"><span class="k">Umwandlungsbetrag (zweckgebunden – anerkannte Angebote)</span><span class="v">'+eur(f.umwandlungsbetrag)+' / Monat</span></div>'+
+        '<div class="calcRow"><span class="k">Entlastungsleistung (zweckgebunden – anerkannte Angebote)</span><span class="v">'+eur(f.entlastungsleistung)+' / Monat</span></div>'+
+        '<div class="calcRow total"><span class="k">Gesamt monatlich</span><span class="v">'+eur(f.gesamt_mit)+' / Monat</span></div>'+
+        '<div class="calcRow"><span class="k">Monatlich mehr möglich für die Pflege (ggü. reinem Pflegegeld)</span><span class="v">'+eur(f.monat_betrag_mit)+' / Monat</span></div>'+
+        '<div class="calcRow"><span class="k">Monatlich mehr möglich für die Pflege, ohne Entlastungsleistung</span><span class="v">'+eur(f.monat_betrag_ohne)+' / Monat</span></div>'+
         '</div>';
     } else {
       html+='<div class="calcBox"><p>Keine laufende Pflegegrad-Phase ab dem aktuellen Monat erfasst.</p></div>';
@@ -587,9 +625,9 @@ function initMainRole(){
     if(rueckwirkend){
       var gesamtRueckwirkend=res.sumRueckwirkend+vpSum;
       html+='<div class="calcBox"><h4>Rückwirkend (ab '+res.cutoffYear+', max. 4 Kalenderjahre)</h4>';
-      if(res.pastDetails.length){
-        html+='<div class="refTableWrap"><table class="calcTable"><thead><tr><th>Monat</th><th>Pflegegrad</th><th class="num">Betrag</th></tr></thead><tbody>'+
-          res.pastDetails.map(function(d){return '<tr><td>'+String(d.monat).padStart(2,'0')+'.'+d.jahr+'</td><td>PG '+d.stufe+'</td><td class="num">'+eur(d.monat_betrag)+'</td></tr>'}).join('')+
+      if(res.pastGrouped.length){
+        html+='<div class="refTableWrap"><table class="calcTable"><thead><tr><th>Jahr</th><th class="num">Monate</th><th class="num">€ / Monat</th><th class="num">Jahressumme</th></tr></thead><tbody>'+
+          res.pastGrouped.map(function(g){return '<tr><td>'+g.jahr+'</td><td class="num">'+g.monate+'</td><td class="num">'+eur(g.betragProMonat)+'</td><td class="num">'+eur(g.summe)+'</td></tr>'}).join('')+
           '</tbody></table></div>';
       } else {
         html+='<p>Keine rückwirkend anrechenbaren Monate erfasst.</p>';
@@ -605,9 +643,10 @@ function initMainRole(){
 
     if(showParagraphs){
       html+='<div class="calcBox calcLegal"><h4>Rechtsgrundlagen</h4>'+
-        '<p>Der Umwandlungsanspruch (Kombination aus Pflegegeld und Pflegesachleistung inkl. Entlastungsbetrag) ergibt sich aus § 45b SGB XI. '+
-        'Ansprüche auf Sozialleistungen verjähren gemäß § 45 SGB I vier Jahre nach Ablauf des Kalenderjahres, in dem sie entstanden sind – '+
-        'eine rückwirkende Beantragung ist daher regelmäßig für die letzten vier Kalenderjahre möglich.</p></div>';
+        '<p><b>Umwandlungsanspruch (§ 45a SGB XI)</b><br>Bis zu 40 % des monatlichen Pflegesachleistungsbudgets können in einen Umwandlungsbetrag für anerkannte Angebote zur Unterstützung im Alltag (z. B. Nachbarschaftshilfe) umgewandelt werden. Dadurch reduziert sich das Pflegegeld anteilig auf 60 % des vollen Satzes.</p>'+
+        '<p style="margin-top:10px"><b>Entlastungsbetrag (§ 45b SGB XI)</b><br>Zusätzlich und unabhängig davon steht Pflegebedürftigen in häuslicher Pflege ein Entlastungsbetrag von bis zu 131 € monatlich zu, ebenfalls zweckgebunden für anerkannte Angebote zur Unterstützung im Alltag.</p>'+
+        '<p style="margin-top:10px"><b>Zweckbindung</b><br>Das (reduzierte) Pflegegeld ist frei verfügbar und ohne Verwendungsnachweis nutzbar. Umwandlungsbetrag und Entlastungsbetrag sind dagegen zweckgebunden und werden nur gegen Nachweis bei anerkannten Angeboten erstattet.</p>'+
+        '<p style="margin-top:10px"><b>Rückwirkende Beantragung (§ 45 SGB I)</b><br>Ansprüche auf Sozialleistungen verjähren vier Jahre nach Ablauf des Kalenderjahres, in dem sie entstanden sind – eine rückwirkende Beantragung ist daher regelmäßig für die letzten vier Kalenderjahre möglich.</p></div>';
     }
 
     document.getElementById('calcResult').innerHTML=html;
