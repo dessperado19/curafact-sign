@@ -454,7 +454,16 @@ function setupSigInput(prefix){
 
   return {
     hasFn:function(){return hasDrawing || !!uploadedDataUrl},
-    getDataUrl:function(){return uploadedDataUrl || (hasDrawing?canvas.toDataURL('image/png'):'')}
+    getDataUrl:function(){return uploadedDataUrl || (hasDrawing?canvas.toDataURL('image/png'):'')},
+    setDataUrl:function(dataurl){
+      if(!dataurl)return;
+      uploadedDataUrl=dataurl;
+      fileStatus.textContent='Vorhandene Unterschrift geladen';
+      preview.src=dataurl;
+      preview.classList.remove('hidden');
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      hasDrawing=false;
+    }
   };
 }
 
@@ -721,6 +730,17 @@ function initMainRole(){
     if(c.person_name)document.getElementById('person_name').value=c.person_name;
     if(c.person_anschrift)document.getElementById('person_anschrift').value=c.person_anschrift;
     if(c.person_geburtsdatum)document.getElementById('person_geburtsdatum').value=c.person_geburtsdatum;
+    if(c.pflege_sig_dataurl)mainSig.setDataUrl(c.pflege_sig_dataurl);
+    if(Array.isArray(c.nachbarschaftshilfen)&&c.nachbarschaftshilfen.length){
+      c.nachbarschaftshilfen.forEach(function(h){
+        addHelperSlot();
+        var n=helperCount;
+        if(h.name)document.getElementById('h'+n+'_name').value=h.name;
+        if(h.anschrift)document.getElementById('h'+n+'_anschrift').value=h.anschrift;
+        if(h.geburtsdatum)document.getElementById('h'+n+'_geburtsdatum').value=h.geburtsdatum;
+        if(h.sig_dataurl&&helperSigs[n])helperSigs[n].setDataUrl(h.sig_dataurl);
+      });
+    }
     if(Array.isArray(c.pflegegrade)&&c.pflegegrade.length){
       pgList=c.pflegegrade.map(function(p){return {
         stufe:String(p.stufe||''), von:p.von||'', bis:p.bis||'',

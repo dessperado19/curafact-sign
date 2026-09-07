@@ -723,6 +723,20 @@ function deToIso(v){
   const m = String(v||'').trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
   return m ? (m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0')) : '';
 }
+function extractHelpersFromFlat(src, dateConv){
+  const numbers = new Set();
+  if(src.hilfe_name || src.hilfe_anschrift || src.hilfe_geburtsdatum || src.hilfe_sig_dataurl) numbers.add(1);
+  Object.keys(src||{}).forEach(k => { const m = k.match(/^hilfe(\d+)_/); if(m) numbers.add(Number(m[1])); });
+  return [...numbers].sort((a,b)=>a-b).map(n => {
+    const p = n===1 ? 'hilfe' : 'hilfe'+n;
+    return {
+      name: src[p+'_name'] || '',
+      anschrift: src[p+'_anschrift'] || '',
+      geburtsdatum: dateConv(src[p+'_geburtsdatum']),
+      sig_dataurl: src[p+'_sig_dataurl'] || '',
+    };
+  });
+}
 function buildIntakePrefillPayload(c){
   return {
     pflege_name: c.pflege_name || '',
@@ -730,6 +744,7 @@ function buildIntakePrefillPayload(c){
     pflege_geburtsdatum: deToIso(c.pflege_geburtsdatum),
     pflege_kvnr: c.pflege_kvnr || '',
     pflege_kasse: c.pflege_kasse || '',
+    pflege_sig_dataurl: c.pflege_sig_dataurl || '',
     pflegeberatung_kunde: !!c.pflegeberatung_kunde,
     person_name: c.person_name || '',
     person_anschrift: c.person_anschrift || '',
@@ -740,6 +755,7 @@ function buildIntakePrefillPayload(c){
       umwandlung_genommen: !!p.umwandlung_genommen,
     })),
     verhinderungspflege: Array.isArray(c.verhinderungspflege) ? c.verhinderungspflege : [],
+    nachbarschaftshilfen: extractHelpersFromFlat(c, deToIso),
   };
 }
 
