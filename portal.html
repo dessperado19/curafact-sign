@@ -47,7 +47,16 @@ button:disabled{opacity:.5;cursor:default}
 .field .k{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
 .field .v{font-size:14.5px;color:var(--text);margin-top:2px}
 
-.calcBox{background:#f2f8fc;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px}
+.calcBox{background:#f2f8fc;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:10px;break-inside:avoid;page-break-inside:avoid}
+.calcRow{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:2px 12px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
+.calcRow:last-child{border-bottom:0}
+.calcRow .k{color:var(--text);flex:1 1 auto;min-width:0}
+.calcRow .v{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;flex:none}
+.calcRow.total{font-weight:700;color:var(--blue);border-top:2px solid var(--border);border-bottom:0;margin-top:2px;padding-top:8px}
+.calcTotalRow td{font-weight:700;color:var(--blue);border-top:2px solid var(--border);border-bottom:0}
+.calcTable td[colspan]{border-bottom:0;padding:3px 0}
+.refTableWrap{overflow-x:auto}
+.calcLegal p{font-size:12px;color:var(--muted)}
 .calcBox h4{margin:0 0 8px;font-size:12.5px;color:var(--blue);text-transform:uppercase;letter-spacing:.03em}
 .calcHead{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:4px}
 .calcHead h3{margin:0 0 4px;font-size:15px;color:var(--blue)}
@@ -148,6 +157,201 @@ const FN_BASE = "https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1";
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcXVtbHhqbWdxcm13bHhxd3JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NTg0NDcsImV4cCI6MjA3NDAzNDQ0N30.sG8vMck4tSDWwsTay_tUujlRDruFjscrrMOhmlkj8Ws";
 
 function esc(v){return String(v??'').replace(/[&<>"]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}
+function eur(n){return (Math.round(n||0)).toLocaleString('de-DE')+' €'}
+
+/* ===== Nachweis-Berechnung (Pflegegeld/Pflegesachleistung/Umwandlung) =====
+   Dieselbe Formel wie in der Fernaufnahme (intake.html) - hier fuer
+   BESTEHENDE Kunden direkt aus deren gespeicherten Pflegegrad-Phasen
+   berechnet (Daten kommen im deutschen Datumsformat TT.MM.JJJJ, wie sie
+   die Desktop-App speichert - anders als bei der Fernaufnahme, die
+   frische <input type="date"> ISO-Werte hat). */
+const PFLEGEGELD_TBL={
+  2021:{1:0,2:316,3:545,4:728,5:901},
+  2022:{1:0,2:316,3:545,4:728,5:901},
+  2023:{1:0,2:316,3:545,4:728,5:901},
+  2024:{1:0,2:332,3:573,4:765,5:947},
+  2025:{1:0,2:347,3:599,4:800,5:990}
+};
+const PSL_TBL={
+  2021:{1:0,2:689,3:1298,4:1612,5:1995},
+  2022:{1:0,2:689,3:1298,4:1612,5:1995},
+  2023:{1:0,2:724,3:1363,4:1693,5:2095},
+  2024:{1:0,2:761,3:1432,4:1778,5:2200},
+  2025:{1:0,2:796,3:1497,4:1859,5:2299}
+};
+const ENTL_TBL={2021:125,2022:125,2023:125,2024:125,2025:131};
+const CALC_TABLE_MIN_YEAR=2021, CALC_TABLE_MAX_YEAR=2025;
+
+function calcParseDE(v){
+  if(!v)return null;
+  const m=String(v).trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if(!m)return null;
+  const d=+m[1],mo=+m[2],y=+m[3];
+  const dt=new Date(y,mo-1,d,12);
+  return (dt.getFullYear()===y&&dt.getMonth()===mo-1&&dt.getDate()===d)?dt:null;
+}
+function calcAtNoon(d){return new Date(d.getFullYear(),d.getMonth(),d.getDate(),12)}
+function calcFirstOfMonth(d){return new Date(d.getFullYear(),d.getMonth(),1,12)}
+function calcAddMonths(d,n){return new Date(d.getFullYear(),d.getMonth()+n,1,12)}
+function calcMonthKey(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}
+
+function rechnePflegegrade(phasen){
+  const today=calcAtNoon(new Date());
+  const todayMonth=calcFirstOfMonth(today);
+  const cutoff=new Date(today.getFullYear()-4,0,1,12);
+  const monthMap=new Map();
+
+  (phasen||[]).forEach(ph=>{
+    const stufe=Number(ph.stufe)||2;
+    const dVon=calcParseDE(ph.von);
+    const dBisEingetragen=calcParseDE(ph.bis);
+    const dBis=dBisEingetragen||(ph.fortlaufend?today:null);
+    if(!dVon||!dBis||dBis<dVon)return;
+    let startM=calcFirstOfMonth(dVon);
+    const endM=calcFirstOfMonth(dBis);
+    const minM=new Date(CALC_TABLE_MIN_YEAR,0,1,12);
+    if(startM<minM)startM=minM;
+    if(endM<startM)return;
+    let cur=new Date(startM);
+    while(cur<=endM){
+      const key=calcMonthKey(cur);
+      const prev=monthMap.get(key);
+      const rec={stufe, entlastung_genommen:!!ph.entlastung_genommen, startedAt:dVon};
+      if(!prev||rec.startedAt>prev.startedAt)monthMap.set(key,rec);
+      cur=calcAddMonths(cur,1);
+    }
+  });
+
+  const pastDetails=[]; let sumRueckwirkend=0; let futureRate=null;
+  monthMap.forEach((rec,key)=>{
+    const parts=key.split('-'); const jahrAnzeige=+parts[0], monatAnzeige=+parts[1];
+    const jahrCalc=PFLEGEGELD_TBL[jahrAnzeige]?jahrAnzeige:CALC_TABLE_MAX_YEAR;
+    const pg=(PFLEGEGELD_TBL[jahrCalc]||{})[rec.stufe]||0;
+    const psl=(PSL_TBL[jahrCalc]||{})[rec.stufe]||0;
+    const entl=ENTL_TBL[jahrCalc]||0;
+    const zukunftOhne=0.4*psl+0.6*pg;
+    const zukunftMit=zukunftOhne+entl;
+    const monatBetragMit=zukunftMit-pg;
+    const monatBetragOhne=zukunftOhne-pg;
+    const monatDelta=rec.entlastung_genommen?monatBetragOhne:monatBetragMit;
+    const monthDate=new Date(jahrAnzeige,monatAnzeige-1,1,12);
+
+    if(monthDate<todayMonth){
+      if(monthDate>=cutoff){
+        sumRueckwirkend+=monatDelta;
+        pastDetails.push({jahr:jahrAnzeige, monat:monatAnzeige, stufe:rec.stufe, monat_betrag:monatDelta});
+      }
+    } else if(!futureRate||monthDate>=futureRate._monthDate){
+      futureRate={
+        _monthDate:monthDate, jahr:jahrAnzeige, stufe:rec.stufe,
+        pflegegeld:pg, pflegegeld_nach_umwandlung:0.6*pg, umwandlungsbetrag:0.4*psl, entlastungsleistung:entl,
+        gesamt_mit:zukunftMit, gesamt_ohne:zukunftOhne,
+        monat_betrag_mit:monatBetragMit, monat_betrag_ohne:monatBetragOhne,
+        monat_betrag:monatDelta
+      };
+    }
+  });
+
+  pastDetails.sort((a,b)=>(a.jahr-b.jahr)||(a.monat-b.monat));
+  const groupMap=new Map(); const groupOrder=[];
+  pastDetails.forEach(d=>{
+    const betragKey=Math.round(d.monat_betrag*100);
+    const key=d.jahr+'|'+betragKey;
+    let g=groupMap.get(key);
+    if(!g){ g={jahr:d.jahr, monate:0, betragProMonat:d.monat_betrag, summe:0}; groupMap.set(key,g); groupOrder.push(key); }
+    g.monate+=1; g.summe+=d.monat_betrag;
+  });
+  const pastGrouped=groupOrder.map(k=>groupMap.get(k));
+
+  return { futureRate, sumRueckwirkend, pastDetails, pastGrouped, cutoffYear:cutoff.getFullYear() };
+}
+
+function calcReferenceTable(){
+  const jahr=CALC_TABLE_MAX_YEAR;
+  const rows=[2,3,4,5].map(stufe=>{
+    const pg=PFLEGEGELD_TBL[jahr][stufe], psl=PSL_TBL[jahr][stufe], entl=ENTL_TBL[jahr];
+    const umwandlung=0.4*psl, pgNachUmwandlung=0.6*pg;
+    const gesamtZukuenftig=umwandlung+pgNachUmwandlung+entl;
+    const gesamtZukuenftigOhne=umwandlung+pgNachUmwandlung;
+    const mehrMoeglich=gesamtZukuenftig-pg;
+    const mehrMoeglichOhne=gesamtZukuenftigOhne-pg;
+    return {stufe, pg, psl, umwandlung, pgNachUmwandlung, entl, gesamtZukuenftig, gesamtZukuenftigOhne, mehrMoeglich, mehrMoeglichOhne};
+  });
+  const head='<tr><th></th>'+rows.map(r=>`<th class="num">PG ${r.stufe}</th>`).join('')+'</tr>';
+  const row=(label,key)=>'<tr><td>'+label+'</td>'+rows.map(r=>`<td class="num">${eur(r[key])}</td>`).join('')+'</tr>';
+  const blankRow=()=>'<tr><td colspan="'+(rows.length+1)+'">&nbsp;</td></tr>';
+  const totalRow=(label,key)=>'<tr class="calcTotalRow"><td>'+label+'</td>'+rows.map(r=>`<td class="num">${eur(r[key])}</td>`).join('')+'</tr>';
+  return '<div class="refTableWrap"><table class="calcTable">'+
+    '<thead>'+head+'</thead><tbody>'+
+    row('Pflegegeld','pg')+
+    row('Pflegesachleistung','psl')+
+    blankRow()+
+    row('Umwandlung (zweckgebunden)','umwandlung')+
+    row('Pflegegeld nach Umwandlung (frei verwendbar)','pgNachUmwandlung')+
+    row('Entlastungsleistung (zweckgebunden)','entl')+
+    totalRow('Gesamt Zukünftig','gesamtZukuenftig')+
+    row('Gesamt Zukünftig ohne Entlastung','gesamtZukuenftigOhne')+
+    blankRow()+
+    row('Monatlich mehr möglich für die Pflege','mehrMoeglich')+
+    row('Monatlich mehr möglich für die Pflege, ohne Entlastungsleistung','mehrMoeglichOhne')+
+    '</tbody></table></div>'+
+    `<p class="mini" style="font-size:11px;color:#889;margin-top:6px">Werte für ${jahr}, Referenzwerte pro Pflegegrad - unabhängig von den oben eingetragenen individuellen Zeiträumen.</p>`;
+}
+
+function buildNachweisHtml(c, rueckwirkend, showParagraphs){
+  const res=rechnePflegegrade(c.pflegegrade||[]);
+  let vpSum=0;
+  (Array.isArray(c.verhinderungspflege)?c.verhinderungspflege:[]).forEach(v=>{
+    if(v.genommen)return;
+    const raw=String(v.betrag||'').replace(',','.').trim();
+    vpSum+=raw?(Number(raw)||0):0;
+  });
+
+  let html=`<div class="calcHead"><div><h3>${esc(c.pflege_name||'—')}</h3><p class="mini">${esc(c.pflege_kasse||'')}</p></div></div>`;
+
+  if(res.futureRate){
+    const f=res.futureRate;
+    html+=`<div class="calcBox"><h4>Zukünftig – laufend ab jetzt</h4>`+
+      `<div class="calcRow"><span class="k">Pflegegeld (frei verfügbar)</span><span class="v">${eur(f.pflegegeld_nach_umwandlung)} / Monat</span></div>`+
+      `<div class="calcRow"><span class="k">Umwandlungsbetrag (zweckgebunden – anerkannte Angebote)</span><span class="v">${eur(f.umwandlungsbetrag)} / Monat</span></div>`+
+      `<div class="calcRow"><span class="k">Entlastungsleistung (zweckgebunden – anerkannte Angebote)</span><span class="v">${eur(f.entlastungsleistung)} / Monat</span></div>`+
+      `<div class="calcRow total"><span class="k">Gesamt monatlich</span><span class="v">${eur(f.gesamt_mit)} / Monat</span></div>`+
+      `<div class="calcRow"><span class="k">Monatlich mehr möglich für die Pflege (ggü. reinem Pflegegeld)</span><span class="v">${eur(f.monat_betrag_mit)} / Monat</span></div>`+
+      `<div class="calcRow"><span class="k">Monatlich mehr möglich für die Pflege, ohne Entlastungsleistung</span><span class="v">${eur(f.monat_betrag_ohne)} / Monat</span></div>`+
+      `</div>`;
+  } else {
+    html+=`<div class="calcBox"><p class="mini">Keine laufende Pflegegrad-Phase ab dem aktuellen Monat erfasst.</p></div>`;
+  }
+
+  if(rueckwirkend){
+    const gesamtRueckwirkend=res.sumRueckwirkend+vpSum;
+    html+=`<div class="calcBox"><h4>Rückwirkend (ab ${res.cutoffYear}, max. 4 Kalenderjahre)</h4>`;
+    if(res.pastGrouped.length){
+      html+=`<div class="refTableWrap"><table class="calcTable"><thead><tr><th>Jahr</th><th class="num">Monate</th><th class="num">€ / Monat</th><th class="num">Jahressumme</th></tr></thead><tbody>`+
+        res.pastGrouped.map(g=>`<tr><td>${g.jahr}</td><td class="num">${g.monate}</td><td class="num">${eur(g.betragProMonat)}</td><td class="num">${eur(g.summe)}</td></tr>`).join('')+
+        `</tbody></table></div>`;
+    } else {
+      html+=`<p class="mini">Keine rückwirkend anrechenbaren Monate erfasst.</p>`;
+    }
+    html+=`<div style="margin-top:6px">`+
+      `<div class="calcRow"><span class="k">Summe aus Pflegegrad-Umwandlung</span><span class="v">${eur(res.sumRueckwirkend)}</span></div>`+
+      (vpSum?`<div class="calcRow"><span class="k">+ Verhinderungspflege-Restbeträge</span><span class="v">${eur(vpSum)}</span></div>`:'')+
+      `<div class="calcRow total"><span class="k">Gesamt rückwirkend</span><span class="v">${eur(gesamtRueckwirkend)}</span></div>`+
+      `</div></div>`;
+  }
+
+  html+=`<div class="calcBox"><h4>Referenztabelle nach Pflegegrad</h4>${calcReferenceTable()}</div>`;
+
+  if(showParagraphs){
+    html+=`<div class="calcBox calcLegal"><h4>Rechtsgrundlagen</h4>`+
+      `<p><b>Umwandlungsanspruch (§ 45a SGB XI)</b><br>Bis zu 40 % des monatlichen Pflegesachleistungsbudgets können in einen Umwandlungsbetrag für anerkannte Angebote zur Unterstützung im Alltag (z. B. Nachbarschaftshilfe) umgewandelt werden. Dadurch reduziert sich das Pflegegeld anteilig auf 60 % des vollen Satzes.</p>`+
+      `<p style="margin-top:10px"><b>Entlastungsbetrag (§ 45b SGB XI)</b><br>Zusätzlich und unabhängig davon steht Pflegebedürftigen in häuslicher Pflege ein Entlastungsbetrag von bis zu 131 € monatlich zu, ebenfalls zweckgebunden für anerkannte Angebote zur Unterstützung im Alltag.</p>`+
+      `<p style="margin-top:10px"><b>Zweckbindung</b><br>Das (reduzierte) Pflegegeld ist frei verfügbar und ohne Verwendungsnachweis nutzbar. Umwandlungsbetrag und Entlastungsbetrag sind dagegen zweckgebunden und werden nur gegen Nachweis bei anerkannten Angeboten erstattet.</p>`+
+      `<p style="margin-top:10px"><b>Rückwirkende Beantragung (§ 45 SGB I)</b><br>Ansprüche auf Sozialleistungen verjähren vier Jahre nach Ablauf des Kalenderjahres, in dem sie entstanden sind – eine rückwirkende Beantragung ist daher regelmäßig für die letzten vier Kalenderjahre möglich.</p></div>`;
+  }
+
+  return html;
+}
 
 async function callFn(name, body){
   try{
@@ -299,6 +503,20 @@ function renderDetail(c){
     </div>`;
   });
 
+  html += `<div class="box">
+    <h2>Berechnung / Nachweis</h2>
+    <p class="mini">Zukünftig laufend möglich sowie - falls gewünscht - rückwirkend beantragbar, basierend auf den aktuell gespeicherten Pflegegrad-Phasen.</p>
+    <div class="row" style="margin-top:8px;align-items:center;gap:16px">
+      <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0"><input type="checkbox" id="nachweisRueckwirkend" style="width:auto"> Rückwirkend beantragen</label>
+      <label style="display:flex;align-items:center;gap:6px;font-weight:400;margin:0"><input type="checkbox" id="nachweisParagraphen" checked style="width:auto"> Rechtsgrundlagen (§) anzeigen</label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <button class="primary" id="nachweisShowBtn">Berechnung anzeigen</button>
+      <button id="nachweisPrintBtn" style="display:none">Nachweis drucken</button>
+    </div>
+    <div id="nachweisResult" style="margin-top:10px"></div>
+  </div>`;
+
   if(calc && calc.result){
     const res = calc.result;
     lastBerechnung = { html: buildBerechnungHtml(res, calc.at), title: 'Berechnung – ' + (res.kunde && res.kunde.name || c.pflege_name || '') };
@@ -337,6 +555,19 @@ function renderDetail(c){
   if(lastBerechnung){
     document.getElementById('printCalcBtn').onclick = () => printBerechnung(lastBerechnung.html, lastBerechnung.title);
   }
+
+  let lastNachweis = null;
+  document.getElementById('nachweisShowBtn').onclick = () => {
+    const rueckwirkend = document.getElementById('nachweisRueckwirkend').checked;
+    const showParagraphs = document.getElementById('nachweisParagraphen').checked;
+    const nHtml = buildNachweisHtml(c, rueckwirkend, showParagraphs);
+    document.getElementById('nachweisResult').innerHTML = nHtml;
+    lastNachweis = { html: nHtml, title: 'Nachweis Pflegeleistungen – ' + (c.pflege_name || '') };
+    document.getElementById('nachweisPrintBtn').style.display = '';
+  };
+  document.getElementById('nachweisPrintBtn').onclick = () => {
+    if(lastNachweis) printBerechnung(lastNachweis.html, lastNachweis.title);
+  };
 
   document.getElementById('faEditIntakeBtn').onclick = () => startFernaufnahme('start_intake', c.pflege_name);
   document.getElementById('faEditBeratungBtn').onclick = () => startFernaufnahme('start_beratung', c.pflege_name);
@@ -426,6 +657,15 @@ function printBerechnung(html, title){
     .calcTable tr.brutto{background:#fef3c7}
     .calcTable tr.abzug{background:#fee2e2}
     .calcTable tr.netto{background:#dcfce7}
+    .calcTable td[colspan]{border-bottom:0;padding:3px 0}
+    .calcRow{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:2px 12px;padding:5px 0;border-bottom:1px solid #dbe7f0;font-size:11.5px}
+    .calcRow:last-child{border-bottom:0}
+    .calcRow .k{color:#16324f;flex:1 1 auto;min-width:0}
+    .calcRow .v{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;flex:none}
+    .calcRow.total{font-weight:700;color:#0E4A8B;border-top:2px solid #dbe7f0;border-bottom:0;margin-top:2px;padding-top:7px}
+    .calcTotalRow td{font-weight:700;color:#0E4A8B;border-top:2px solid #dbe7f0;border-bottom:0}
+    .refTableWrap{overflow-x:auto}
+    .calcLegal p{font-size:11px;color:#66788a}
     @media print{.page{padding:0}.calcBox{break-inside:avoid}@page{size:A4 portrait;margin:10mm}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   </style>`;
   w.document.open();
