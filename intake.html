@@ -284,10 +284,10 @@ function rechnePflegegrade(phasen){
     var stufe=Number(ph.stufe)||2;
     var dVon=calcParseISO(ph.von);
     var dBisEingetragen=calcParseISO(ph.bis);
-    // Ein eingetragenes "Bis"-Datum ist massgebend, auch wenn "fortlaufend"
-    // zusaetzlich angehakt ist - sonst wird faelschlich bis heute statt bis
-    // zum eingetragenen Enddatum gerechnet.
-    var dBis=dBisEingetragen||(ph.fortlaufend?today:null);
+    // Ohne eingetragenes "Bis" laeuft die Phase automatisch bis heute weiter
+    // (unabhaengig vom "fortlaufend"-Haekchen) - sie endet erst durch ein
+    // explizit eingetragenes Bis-Datum oder durch Deaktivieren des Kunden.
+    var dBis=dBisEingetragen||today;
     if(!dVon||!dBis||dBis<dVon)return;
     var startM=calcFirstOfMonth(dVon);
     var endM=calcFirstOfMonth(dBis);
