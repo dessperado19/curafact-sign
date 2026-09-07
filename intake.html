@@ -83,6 +83,8 @@ canvas{width:100%;height:130px;background:#fff;border:1px solid #d7dce5;border-r
         <div><label>Versichertennummer</label><input type="text" id="pflege_kvnr"></div>
       </div>
       <label>Pflegekasse</label><input type="text" id="pflege_kasse">
+      <div class="checkline"><input type="checkbox" id="pflegeberatung_kunde"><span>Kunde erhält auch Pflegeberatung nach § 37 Abs. 3 SGB XI</span></div>
+      <div class="checkline"><input type="checkbox" id="rueckwirkend_beantragen"><span>Rückwirkend beantragen (rückwirkende Ansprüche prüfen und mit beantragen)</span></div>
     </div>
 
     <div class="box">
@@ -418,6 +420,8 @@ function initMainRole(){
       pflege_geburtsdatum:document.getElementById('pflege_geburtsdatum').value,
       pflege_kvnr:document.getElementById('pflege_kvnr').value,
       pflege_kasse:document.getElementById('pflege_kasse').value,
+      pflegeberatung_kunde:document.getElementById('pflegeberatung_kunde').checked,
+      rueckwirkend_beantragen:document.getElementById('rueckwirkend_beantragen').checked,
       person_name:document.getElementById('person_name').value,
       person_anschrift:document.getElementById('person_anschrift').value,
       person_geburtsdatum:document.getElementById('person_geburtsdatum').value,
