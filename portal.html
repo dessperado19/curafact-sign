@@ -68,6 +68,11 @@ button:disabled{opacity:.5;cursor:default}
 .activityItem{padding:8px 0;border-bottom:1px solid var(--border);font-size:13.5px;line-height:1.5}
 .activityItem:last-child{border-bottom:0}
 .activityItem .badge{margin-right:6px;vertical-align:1px}
+.modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:9999}
+.modalBox{background:#fff;border-radius:14px;padding:22px;max-width:420px;width:92%;max-height:88vh;overflow:auto}
+.modalBox h3{margin:0 0 10px;color:var(--blue);font-size:16px}
+#faQrBox{display:flex;justify-content:center;margin:10px 0}
+#faUrl{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;background:#f2f5fb;padding:8px;border-radius:8px;word-break:break-all}
 </style>
 </head>
 <body>
@@ -100,9 +105,19 @@ button:disabled{opacity:.5;cursor:default}
     </div>
 
     <div class="grid">
-      <div class="box" style="padding:12px">
-        <input type="text" id="custSearch" placeholder="Kunde suchen…" style="margin-bottom:10px">
-        <div id="custList"><div class="empty">Lade Kunden …</div></div>
+      <div>
+        <div class="box" style="padding:12px">
+          <input type="text" id="custSearch" placeholder="Kunde suchen…" style="margin-bottom:10px">
+          <div id="custList"><div class="empty">Lade Kunden …</div></div>
+        </div>
+        <div class="box">
+          <h2>Fernaufnahme – Neuer Kunde</h2>
+          <p class="mini">Link/QR-Code an einen neuen Kunden schicken, um Stammdaten von unterwegs aufzunehmen.</p>
+          <div class="row" style="margin-top:8px">
+            <button id="faNewIntakeBtn">Abrechnung</button>
+            <button id="faNewBeratungBtn">Beratung</button>
+          </div>
+        </div>
       </div>
 
       <div id="detailBox">
@@ -113,6 +128,21 @@ button:disabled{opacity:.5;cursor:default}
 
 </div>
 
+<div id="faModal" class="modalOverlay hidden">
+  <div class="modalBox">
+    <h3>Fernaufnahme</h3>
+    <p class="mini" id="faModalLabel"></p>
+    <p class="mini">Link per WhatsApp/Mail senden oder QR-Code scannen lassen.</p>
+    <div id="faQrBox"></div>
+    <p id="faUrl"></p>
+    <div class="row" style="margin-top:10px">
+      <button id="faCopyBtn">Link kopieren</button>
+      <button id="faCloseBtn">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const FN_BASE = "https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1";
 const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcXVtbHhqbWdxcm13bHhxd3JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NTg0NDcsImV4cCI6MjA3NDAzNDQ0N30.sG8vMck4tSDWwsTay_tUujlRDruFjscrrMOhmlkj8Ws";
@@ -231,6 +261,44 @@ function renderDetail(c){
   }
   html += `</div>`;
 
+  html += `<div class="box">
+    <h2>Fernaufnahme – Änderungen</h2>
+    <p class="mini">Link/QR für ${esc(c.pflege_name||'diesen Kunden')} - Angaben werden in der Desktop-App diesem Kunden zugeordnet, nicht als neuer Kunde angelegt.</p>
+    <div class="row" style="margin-top:8px">
+      <button id="faEditIntakeBtn">Abrechnung</button>
+      <button id="faEditBeratungBtn">Beratung</button>
+    </div>
+  </div>`;
+
+  if(c.person_name || c.person_anschrift || c.person_geburtsdatum){
+    html += `<div class="box">
+      <h2>Bevollmächtigte Person / Ansprechpartner</h2>
+      <div class="detailGrid">
+        <div class="field"><div class="k">Name</div><div class="v">${esc(c.person_name||'—')}</div></div>
+        <div class="field"><div class="k">Anschrift</div><div class="v">${esc(c.person_anschrift||'—')}</div></div>
+        <div class="field"><div class="k">Geburtsdatum</div><div class="v">${esc(c.person_geburtsdatum||'—')}</div></div>
+      </div>
+    </div>`;
+  }
+
+  const helperNums = [];
+  if(c.hilfe_name || c.hilfe_anschrift || c.hilfe_geburtsdatum) helperNums.push(1);
+  Object.keys(c||{}).forEach(k => { const m = k.match(/^hilfe(\d+)_/); if(m && !helperNums.includes(Number(m[1]))) helperNums.push(Number(m[1])); });
+  helperNums.sort((a,b)=>a-b);
+  helperNums.forEach(n => {
+    const prefix = n===1 ? 'hilfe' : `hilfe${n}`;
+    const name = c[prefix+'_name'], anschrift = c[prefix+'_anschrift'], geb = c[prefix+'_geburtsdatum'];
+    if(!name && !anschrift && !geb) return;
+    html += `<div class="box">
+      <h2>${n===1?'Nachbarschaftshilfe':n+'. Nachbarschaftshilfe'}</h2>
+      <div class="detailGrid">
+        <div class="field"><div class="k">Name</div><div class="v">${esc(name||'—')}</div></div>
+        <div class="field"><div class="k">Anschrift</div><div class="v">${esc(anschrift||'—')}</div></div>
+        <div class="field"><div class="k">Geburtsdatum</div><div class="v">${esc(geb||'—')}</div></div>
+      </div>
+    </div>`;
+  });
+
   if(calc && calc.result){
     const res = calc.result;
     lastBerechnung = { html: buildBerechnungHtml(res, calc.at), title: 'Berechnung – ' + (res.kunde && res.kunde.name || c.pflege_name || '') };
@@ -269,6 +337,9 @@ function renderDetail(c){
   if(lastBerechnung){
     document.getElementById('printCalcBtn').onclick = () => printBerechnung(lastBerechnung.html, lastBerechnung.title);
   }
+
+  document.getElementById('faEditIntakeBtn').onclick = () => startFernaufnahme('start_intake', c.pflege_name);
+  document.getElementById('faEditBeratungBtn').onclick = () => startFernaufnahme('start_beratung', c.pflege_name);
 
   loadClickupLinks(c.pflege_name, !!c.pflegeberatung_kunde);
 
@@ -399,6 +470,26 @@ async function loadNotes(name){
       <div>${esc(n.text)}</div>
     </div>`).join('') : '<div class="empty">Noch keine Notizen.</div>';
 }
+
+let faQr = null;
+async function startFernaufnahme(action, label){
+  const r = await callFn('portal-data', { token: session.token, action, label: label || '' });
+  if(!r.ok){ alert(r.message || 'Fernaufnahme konnte nicht gestartet werden.'); return; }
+  const base = location.href.replace(/portal\.html.*$/, '');
+  const url = base + r.page + '?s=' + encodeURIComponent(r.session) + '&l=' + encodeURIComponent(r.label || '');
+  document.getElementById('faModalLabel').textContent = label ? ('Für: ' + label + ' (Änderungen - wird in der Desktop-App dem bestehenden Kunden zugeordnet)') : 'Neuer Kunde';
+  document.getElementById('faUrl').textContent = url;
+  const qrBox = document.getElementById('faQrBox');
+  qrBox.innerHTML = '';
+  if(window.QRCode){ faQr = new QRCode(qrBox, { text: url, width: 190, height: 190 }); }
+  document.getElementById('faCopyBtn').onclick = () => {
+    navigator.clipboard.writeText(url).then(() => { document.getElementById('faCopyBtn').textContent = 'Kopiert ✓'; setTimeout(() => document.getElementById('faCopyBtn').textContent = 'Link kopieren', 1500); });
+  };
+  document.getElementById('faCloseBtn').onclick = () => document.getElementById('faModal').classList.add('hidden');
+  document.getElementById('faModal').classList.remove('hidden');
+}
+document.getElementById('faNewIntakeBtn').onclick = () => startFernaufnahme('start_intake', '');
+document.getElementById('faNewBeratungBtn').onclick = () => startFernaufnahme('start_beratung', '');
 
 document.getElementById('loginBtn').onclick = doLogin;
 document.getElementById('loginCode').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
