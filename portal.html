@@ -319,7 +319,7 @@ function buildNachweisHtml(c, rueckwirkend, showParagraphs){
 
   if(res.futureRate){
     const f=res.futureRate;
-    html+=`<div class="calcBox"><h4>Zukünftig – laufend ab jetzt</h4>`+
+    html+=`<div class="calcBox"><h4>Zukünftig</h4><p class="mini">Laufend ab jetzt</p>`+
       `<div class="calcRow"><span class="k">Pflegegeld (frei verfügbar)</span><span class="v">${eur(f.pflegegeld_nach_umwandlung)} / Monat</span></div>`+
       `<div class="calcRow"><span class="k">Umwandlungsbetrag (zweckgebunden – anerkannte Angebote)</span><span class="v">${eur(f.umwandlungsbetrag)} / Monat</span></div>`+
       `<div class="calcRow"><span class="k">Entlastungsleistung (zweckgebunden – anerkannte Angebote)</span><span class="v">${eur(f.entlastungsleistung)} / Monat</span></div>`+
@@ -333,7 +333,7 @@ function buildNachweisHtml(c, rueckwirkend, showParagraphs){
 
   if(rueckwirkend){
     const gesamtRueckwirkend=res.sumRueckwirkend+vpSum;
-    html+=`<div class="calcBox"><h4>Rückwirkend (ab ${res.cutoffYear}, max. 4 Kalenderjahre)</h4>`;
+    html+=`<div class="calcBox"><h4>Rückwirkend</h4><p class="mini">Ab ${res.cutoffYear}, max. 4 Kalenderjahre</p>`;
     if(res.pastGrouped.length){
       html+=`<div class="refTableWrap"><table class="calcTable"><thead><tr><th>Jahr</th><th class="num">Monate</th><th class="num">€ / Monat</th><th class="num">Jahressumme</th></tr></thead><tbody>`+
         res.pastGrouped.map(g=>`<tr><td>${g.jahr}</td><td class="num">${g.monate}</td><td class="num">${eur(g.betragProMonat)}</td><td class="num">${eur(g.summe)}</td></tr>`).join('')+
