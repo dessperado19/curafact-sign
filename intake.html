@@ -94,6 +94,7 @@ canvas{width:100%;height:130px;background:#fff;border:1px solid #d7dce5;border-r
   <p class="sub" id="pageSub"></p>
 
   <div id="mainForm">
+    <p class="sub" id="prefillNote" style="display:none">Ein paar Angaben sind schon ausgefüllt - bitte prüfen und bei Bedarf korrigieren.</p>
     <div class="box">
       <h2>Angaben zur pflegebedürftigen Person</h2>
       <label>Name, Vorname</label><input type="text" id="pflege_name">
@@ -221,6 +222,7 @@ canvas{width:100%;height:130px;background:#fff;border:1px solid #d7dce5;border-r
 
 <script>
 var SUBMIT_URL='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1/submit';
+var PORTAL_DATA_URL='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1/portal-data';
 var params=new URLSearchParams(location.search);
 var ROLE=params.get('role')||'main';
 var SESSION=params.get('s')||'';
@@ -706,6 +708,48 @@ function initMainRole(){
       else{msg.textContent='Fehler beim Senden ('+r.res.status+').'}
     }).catch(function(e){msg.textContent='Fehler: '+e});
   };
+
+  function prefillFromCustomer(c){
+    if(c.pflege_name)document.getElementById('pflege_name').value=c.pflege_name.trim();
+    if(c.pflege_anschrift)document.getElementById('pflege_anschrift').value=c.pflege_anschrift;
+    if(c.pflege_geburtsdatum)document.getElementById('pflege_geburtsdatum').value=c.pflege_geburtsdatum;
+    if(c.pflege_kvnr)document.getElementById('pflege_kvnr').value=c.pflege_kvnr;
+    if(c.pflege_kasse)document.getElementById('pflege_kasse').value=c.pflege_kasse;
+    if(c.pflegeberatung_kunde)document.getElementById('pflegeberatung_kunde').checked=true;
+    if(c.person_name)document.getElementById('person_name').value=c.person_name;
+    if(c.person_anschrift)document.getElementById('person_anschrift').value=c.person_anschrift;
+    if(c.person_geburtsdatum)document.getElementById('person_geburtsdatum').value=c.person_geburtsdatum;
+    if(Array.isArray(c.pflegegrade)&&c.pflegegrade.length){
+      pgList=c.pflegegrade.map(function(p){return {
+        stufe:String(p.stufe||''), von:p.von||'', bis:p.bis||'',
+        fortlaufend:!!p.fortlaufend, entlastung_genommen:!!p.entlastung_genommen,
+        umwandlung_genommen:!!p.umwandlung_genommen
+      }});
+      renderPgList();
+    }
+    if(Array.isArray(c.verhinderungspflege)){
+      c.verhinderungspflege.forEach(function(v){
+        if(v.jahr===curYear){
+          if(v.genommen)document.getElementById('vp_cur_genommen').checked=true;
+          else if(v.betrag)document.getElementById('vp_cur_betrag').value=v.betrag;
+        } else if(v.jahr===prevYear){
+          if(v.genommen)document.getElementById('vp_prev_genommen').checked=true;
+          else if(v.betrag)document.getElementById('vp_prev_betrag').value=v.betrag;
+        }
+      });
+    }
+    document.getElementById('prefillNote').style.display='block';
+  }
+
+  if(SESSION){
+    fetch(PORTAL_DATA_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'get_session', session:SESSION})
+    }).then(function(res){
+      return res.json().catch(function(){return {ok:false}});
+    }).then(function(r){
+      if(r.ok&&r.customer)prefillFromCustomer(r.customer);
+    }).catch(function(){});
+  }
 }
 
 if(ROLE==='helper'){ initHelperRole(); } else { initMainRole(); }

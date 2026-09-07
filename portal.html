@@ -572,8 +572,8 @@ function renderDetail(c){
     if(lastNachweis) printBerechnung(lastNachweis.html, lastNachweis.title);
   };
 
-  document.getElementById('faEditIntakeBtn').onclick = () => startFernaufnahme('start_intake', c.pflege_name);
-  document.getElementById('faEditBeratungBtn').onclick = () => startFernaufnahme('start_beratung', c.pflege_name);
+  document.getElementById('faEditIntakeBtn').onclick = () => startFernaufnahme('start_intake', c.pflege_name, c);
+  document.getElementById('faEditBeratungBtn').onclick = () => startFernaufnahme('start_beratung', c.pflege_name, c);
 
   loadClickupLinks(c.pflege_name, !!c.pflegeberatung_kunde);
 
@@ -714,9 +714,35 @@ async function loadNotes(name){
     </div>`).join('') : '<div class="empty">Noch keine Notizen.</div>';
 }
 
+function deToIso(v){
+  const m = String(v||'').trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  return m ? (m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0')) : '';
+}
+function buildIntakePrefillPayload(c){
+  return {
+    pflege_name: c.pflege_name || '',
+    pflege_anschrift: c.pflege_anschrift || '',
+    pflege_geburtsdatum: deToIso(c.pflege_geburtsdatum),
+    pflege_kvnr: c.pflege_kvnr || '',
+    pflege_kasse: c.pflege_kasse || '',
+    pflegeberatung_kunde: !!c.pflegeberatung_kunde,
+    person_name: c.person_name || '',
+    person_anschrift: c.person_anschrift || '',
+    person_geburtsdatum: deToIso(c.person_geburtsdatum),
+    pflegegrade: (Array.isArray(c.pflegegrade) ? c.pflegegrade : []).map(p => ({
+      stufe: p.stufe, von: deToIso(p.von), bis: deToIso(p.bis),
+      fortlaufend: !!p.fortlaufend, entlastung_genommen: !!p.entlastung_genommen,
+      umwandlung_genommen: !!p.umwandlung_genommen,
+    })),
+    verhinderungspflege: Array.isArray(c.verhinderungspflege) ? c.verhinderungspflege : [],
+  };
+}
+
 let faQr = null;
-async function startFernaufnahme(action, label){
-  const r = await callFn('portal-data', { token: session.token, action, label: label || '' });
+async function startFernaufnahme(action, label, customer){
+  const body = { token: session.token, action, label: label || '' };
+  if(customer) body.customer = buildIntakePrefillPayload(customer);
+  const r = await callFn('portal-data', body);
   if(!r.ok){ alert(r.message || 'Fernaufnahme konnte nicht gestartet werden.'); return; }
   const base = location.href.replace(/portal\.html.*$/, '');
   const url = base + r.page + '?s=' + encodeURIComponent(r.session) + '&l=' + encodeURIComponent(r.label || '');
