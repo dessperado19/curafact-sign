@@ -82,6 +82,11 @@ canvas{width:100%;height:130px;background:#fff;border:1px solid #d7dce5;border-r
 .calcLegal p{font-size:12px;color:#556}
 .refTableWrap{overflow-x:auto}
 #calcParagraphNote{font-size:11px;color:#889;margin-top:4px}
+.calcRow{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:7px 0;border-bottom:1px solid #e3eaf3;font-size:13px}
+.calcRow:last-child{border-bottom:0}
+.calcRow .k{color:#334}
+.calcRow .v{font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;flex:none}
+.calcRow.total{font-weight:700;color:var(--blue);border-top:2px solid #c9d9ec;border-bottom:0;margin-top:2px;padding-top:9px}
 </style></head><body>
 <div class="wrap">
   <h1 id="pageTitle">CuraFact - Aufnahme</h1>
@@ -569,13 +574,12 @@ function initMainRole(){
 
     if(res.futureRate){
       html+='<div class="calcBox"><h4>Zukünftig – laufend ab jetzt</h4>'+
-        '<table class="calcTable"><tbody>'+
-        '<tr><td>Pflegegeld (100%), PG '+res.futureRate.stufe+'</td><td class="num">'+eur(res.futureRate.pflegegeld)+' / Monat</td></tr>'+
-        '<tr><td>Zusätzlich durch Umwandlung, mit Entlastungsbetrag/Nachbarschaftshilfe</td><td class="num">'+eur(res.futureRate.monat_betrag_mit)+' / Monat</td></tr>'+
-        '<tr><td>Zusätzlich durch Umwandlung, ohne Entlastungsbetrag/Nachbarschaftshilfe</td><td class="num">'+eur(res.futureRate.monat_betrag_ohne)+' / Monat</td></tr>'+
-        '<tr class="calcTotalRow"><td>Monatlich zusätzlich möglich (laufend)</td><td class="num">'+eur(res.futureRate.monat_betrag)+' / Monat</td></tr>'+
-        '<tr><td>Hochgerechnet auf 12 Monate</td><td class="num">'+eur(res.futureRate.monat_betrag*12)+' / Jahr</td></tr>'+
-        '</tbody></table></div>';
+        '<div class="calcRow"><span class="k">Pflegegeld (100%), PG '+res.futureRate.stufe+'</span><span class="v">'+eur(res.futureRate.pflegegeld)+' / Monat</span></div>'+
+        '<div class="calcRow"><span class="k">Zusätzlich durch Umwandlung, mit Entlastungsbetrag/Nachbarschaftshilfe</span><span class="v">'+eur(res.futureRate.monat_betrag_mit)+' / Monat</span></div>'+
+        '<div class="calcRow"><span class="k">Zusätzlich durch Umwandlung, ohne Entlastungsbetrag/Nachbarschaftshilfe</span><span class="v">'+eur(res.futureRate.monat_betrag_ohne)+' / Monat</span></div>'+
+        '<div class="calcRow total"><span class="k">Monatlich zusätzlich möglich (laufend)</span><span class="v">'+eur(res.futureRate.monat_betrag)+' / Monat</span></div>'+
+        '<div class="calcRow"><span class="k">Hochgerechnet auf 12 Monate</span><span class="v">'+eur(res.futureRate.monat_betrag*12)+' / Jahr</span></div>'+
+        '</div>';
     } else {
       html+='<div class="calcBox"><p>Keine laufende Pflegegrad-Phase ab dem aktuellen Monat erfasst.</p></div>';
     }
@@ -584,17 +588,17 @@ function initMainRole(){
       var gesamtRueckwirkend=res.sumRueckwirkend+vpSum;
       html+='<div class="calcBox"><h4>Rückwirkend (ab '+res.cutoffYear+', max. 4 Kalenderjahre)</h4>';
       if(res.pastDetails.length){
-        html+='<table class="calcTable"><thead><tr><th>Monat</th><th>Pflegegrad</th><th class="num">Betrag</th></tr></thead><tbody>'+
+        html+='<div class="refTableWrap"><table class="calcTable"><thead><tr><th>Monat</th><th>Pflegegrad</th><th class="num">Betrag</th></tr></thead><tbody>'+
           res.pastDetails.map(function(d){return '<tr><td>'+String(d.monat).padStart(2,'0')+'.'+d.jahr+'</td><td>PG '+d.stufe+'</td><td class="num">'+eur(d.monat_betrag)+'</td></tr>'}).join('')+
-          '</tbody></table>';
+          '</tbody></table></div>';
       } else {
         html+='<p>Keine rückwirkend anrechenbaren Monate erfasst.</p>';
       }
-      html+='<table class="calcTable" style="margin-top:6px"><tbody>'+
-        '<tr><td>Summe aus Pflegegrad-Umwandlung</td><td class="num">'+eur(res.sumRueckwirkend)+'</td></tr>'+
-        (vpSum?('<tr><td>+ Verhinderungspflege-Restbeträge</td><td class="num">'+eur(vpSum)+'</td></tr>'):'')+
-        '<tr class="calcTotalRow"><td>Gesamt rückwirkend</td><td class="num">'+eur(gesamtRueckwirkend)+'</td></tr>'+
-        '</tbody></table></div>';
+      html+='<div style="margin-top:6px">'+
+        '<div class="calcRow"><span class="k">Summe aus Pflegegrad-Umwandlung</span><span class="v">'+eur(res.sumRueckwirkend)+'</span></div>'+
+        (vpSum?('<div class="calcRow"><span class="k">+ Verhinderungspflege-Restbeträge</span><span class="v">'+eur(vpSum)+'</span></div>'):'')+
+        '<div class="calcRow total"><span class="k">Gesamt rückwirkend</span><span class="v">'+eur(gesamtRueckwirkend)+'</span></div>'+
+        '</div></div>';
     }
 
     html+='<div class="calcBox"><h4>Referenztabelle nach Pflegegrad</h4>'+calcReferenceTable()+'</div>';
