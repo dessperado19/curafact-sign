@@ -283,7 +283,11 @@ function rechnePflegegrade(phasen){
   (phasen||[]).forEach(function(ph){
     var stufe=Number(ph.stufe)||2;
     var dVon=calcParseISO(ph.von);
-    var dBis=ph.fortlaufend?today:calcParseISO(ph.bis);
+    var dBisEingetragen=calcParseISO(ph.bis);
+    // Ein eingetragenes "Bis"-Datum ist massgebend, auch wenn "fortlaufend"
+    // zusaetzlich angehakt ist - sonst wird faelschlich bis heute statt bis
+    // zum eingetragenen Enddatum gerechnet.
+    var dBis=dBisEingetragen||(ph.fortlaufend?today:null);
     if(!dVon||!dBis||dBis<dVon)return;
     var startM=calcFirstOfMonth(dVon);
     var endM=calcFirstOfMonth(dBis);
