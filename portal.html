@@ -342,7 +342,7 @@ function buildNachweisHtml(c, rueckwirkend, showParagraphs){
       html+=`<p class="mini">Keine rückwirkend anrechenbaren Monate erfasst.</p>`;
     }
     html+=`<div style="margin-top:6px">`+
-      `<div class="calcRow"><span class="k">Summe aus Pflegegrad-Umwandlung</span><span class="v">${eur(res.sumRueckwirkend)}</span></div>`+
+      `<div class="calcRow"><span class="k">Summe</span><span class="v">${eur(res.sumRueckwirkend)}</span></div>`+
       (vpSum?`<div class="calcRow"><span class="k">+ Verhinderungspflege-Restbeträge</span><span class="v">${eur(vpSum)}</span></div>`:'')+
       `<div class="calcRow total"><span class="k">Gesamt rückwirkend</span><span class="v">${eur(gesamtRueckwirkend)}</span></div>`+
       `</div></div>`;
