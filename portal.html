@@ -464,14 +464,15 @@ function renderDetail(c){
       <div class="field"><div class="k">Pflegeberatung</div><div class="v">${c.pflegeberatung_kunde?'Ja':'Nein'}</div></div>
     </div>`;
 
-  if(Array.isArray(c.pflegegrade) && c.pflegegrade.length){
-    html += `<div style="margin-top:10px"><div class="k">Pflegegrade</div>`;
-    c.pflegegrade.forEach(pg => {
-      html += `<div class="v">PG${esc(pg.stufe||'?')} seit ${esc(pg.von||'—')}${pg.bis?' bis '+esc(pg.bis):''}${pg.fortlaufend?' (fortlaufend)':''}</div>`;
-    });
-    html += `</div>`;
-  }
   html += `</div>`;
+
+  if(Array.isArray(c.pflegegrade) && c.pflegegrade.length){
+    html += `<div class="box"><h2>Pflegegrade</h2><div class="calcTableWrap"><table class="calcTable"><thead><tr><th>Stufe</th><th>Seit</th><th>Bis</th><th>Fortlaufend</th><th>Entlastung genommen</th></tr></thead><tbody>${c.pflegegrade.map(p=>`<tr><td>${esc(p.stufe?'PG'+p.stufe:'—')}</td><td>${esc(p.von||'—')}</td><td>${esc(p.bis||'—')}</td><td>${p.fortlaufend?'Ja':'Nein'}</td><td>${p.entlastung_genommen?'Ja':'Nein'}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }
+
+  if(Array.isArray(c.verhinderungspflege) && c.verhinderungspflege.length){
+    html += `<div class="box"><h2>Verhinderungspflege</h2><div class="calcTableWrap"><table class="calcTable"><thead><tr><th>Jahr</th><th>Genommen</th><th>Betrag / Rest</th><th>Von</th><th>Bis</th></tr></thead><tbody>${c.verhinderungspflege.map(v=>`<tr><td>${esc(v.jahr||'—')}</td><td>${v.genommen?'Ja':'Nein'}</td><td>${esc(v.betrag||'—')}</td><td>${esc(v.start||'—')}</td><td>${esc(v.ende||'—')}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }
 
   html += `<div class="box">
     <h2>Fernaufnahme – Änderungen</h2>
