@@ -51,6 +51,12 @@ canvas{width:100%;height:150px;background:#fff;border:1px solid #d7dce5;border-r
 .tbBar select{flex:1;min-width:180px;padding:9px;font-size:14px}
 .tbCount{font-size:11px;color:#889}
 .hint{background:#eef5fd;border:1px solid #cfe0f5;color:#1d3a5c;border-radius:9px;padding:9px 11px;font-size:12px;margin:8px 0}
+.docCard{border:1px solid #d7dce5;border-radius:11px;padding:12px;margin-top:12px;background:#fbfcfe}
+.docCard b{font-size:14px;color:#222}
+.docBtns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.docBtns button{background:#e9ecf2;color:#333}
+.docBtns button.print{background:var(--blue);color:#fff}
+.docFrame{width:100%;height:480px;border:1px solid #d7dce5;border-radius:8px;margin-top:10px;background:#fff}
 #submitBtn{background:#1f8f4d;color:#fff;width:100%;padding:15px;font-size:16px;margin-top:6px}
 #msg{text-align:center;padding:10px;font-size:14px}
 </style></head><body>
@@ -128,6 +134,13 @@ canvas{width:100%;height:150px;background:#fff;border:1px solid #d7dce5;border-r
     <div class="checkline"><input type="checkbox" id="einwilligung_ziffer4"><span>Übermittlung der Empfehlungen (Ziffer 4) an die Pflegekasse</span></div>
     <div class="checkline"><input type="checkbox" id="einwilligung_inaugenschein"><span>Inaugenscheinnahme von Körperregionen erfolgt, und Übermittlung dieser Information an die Pflegekasse</span></div>
     <div class="checkline"><input type="checkbox" id="einwilligung_7a_verarbeitung"><span>Verarbeitung der Ergebnisse dieses Besuchs im Rahmen einer §7a-Pflegeberatung</span></div>
+  </div>
+
+  <div class="box hidden" id="unterlagenBox">
+    <h2>Verträge &amp; Unterlagen der Beratungsstelle</h2>
+    <p class="sub" style="margin:0 0 6px">Ansehen, unterschreiben lassen und direkt ausdrucken (AirPrint). Die Unterlagen werden in Studio in die Kundenakte übernommen. Die Unterschrift der Beratungsstelle (UG) wird durch die Geschäftsführung nachgeholt.</p>
+    <div class="grid2"><div><label>Ort</label><input type="text" id="v_ort"></div><div><label>Datum</label><input type="text" id="v_datum" placeholder="TT.MM.JJJJ"></div></div>
+    <div id="unterlagenListe"></div>
   </div>
 
   <div class="box">
@@ -362,8 +375,71 @@ function setV(id,v){var el=$(id);if(el&&v!=null&&v!=='')el.value=v}
     setV('kasse_name',c.kasse_name||c.pflege_kasse);setV('kasse_anschrift',c.kasse_anschrift);
     setV('beratungsperson_name',c.beratungsperson_name);setV('beratungsperson_funktion',c.beratungsperson_funktion);
     if(c.textbausteine&&c.textbausteine.length){BAUSTEINE=c.textbausteine;buildToolbars()}
+    if(c.unterlagen&&c.unterlagen.length)renderUnterlagen(c.unterlagen,c.vertrag_ort,c.unterzeichner_vorschlag);
   }).catch(function(){});
 })();
+
+/* ---------- Verträge & Unterlagen (Tablet ohne Studio): ansehen, unterschreiben, drucken ---------- */
+var UNTERLAGEN=[], sigVereinb=null;
+function escH(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function docHtml(d){
+  var sig='_________________________________';
+  if(d.unterschrift_kunde&&sigVereinb&&sigVereinb.hasFn()){sig='<img src="'+sigVereinb.getDataUrl()+'" style="height:48px">'}
+  return d.html.split('[[ORT]]').join(escH($('v_ort').value)).split('[[DATUM]]').join(escH($('v_datum').value)).split('[[SIG_KUNDE]]').join(sig);
+}
+function printDoc(d){
+  var w=window.open('','_blank');
+  if(!w){$('msg').textContent='Das Druckfenster wurde blockiert - bitte Pop-ups für diese Seite erlauben.';return}
+  d._printed=true;
+  w.document.open();w.document.write(docHtml(d));w.document.close();
+  w.focus();setTimeout(function(){try{w.print()}catch(e){}},600);
+}
+function renderUnterlagen(list,ort,vorschlagName){
+  UNTERLAGEN=list||[];
+  if(!UNTERLAGEN.length)return;
+  var t=new Date(), p=function(n){return String(n).padStart(2,'0')};
+  $('v_ort').value=ort||'';
+  $('v_datum').value=p(t.getDate())+'.'+p(t.getMonth()+1)+'.'+t.getFullYear();
+  var html='';
+  UNTERLAGEN.forEach(function(d,i){
+    html+='<div class="docCard" id="doc_'+i+'"><b>'+escH(d.titel)+'</b><div class="docBtns"><button type="button" data-act="view" data-i="'+i+'">Ansehen</button><button type="button" class="print" data-act="print" data-i="'+i+'">Drucken</button></div><iframe class="docFrame hidden" id="docframe_'+i+'"></iframe>';
+    if(d.unterschrift_kunde){
+      html+='<div class="sigArea"><label style="margin-top:0">Name der unterschreibenden Person</label><input type="text" id="v_name" value="'+escH(vorschlagName||'')+'">'+
+        '<div class="sigFileRow" style="margin-top:10px"><button type="button" class="fileBtnStyle" id="sigfilebtn_vereinb">Datei wählen</button><input type="file" accept="image/*" id="sigfile_vereinb" class="hidden"><span class="fileStatusStyle" id="sigfilestatus_vereinb">Keine Datei ausgewählt</span></div>'+
+        '<img id="sigpreview_vereinb" class="sigPreviewImg hidden"><label style="margin-top:10px">Unterschrift für diese Vereinbarung</label><canvas id="sig_vereinb"></canvas><div class="sigbar"><button type="button" id="sigclear_vereinb">Löschen</button></div></div>';
+    }else{
+      html+='<div class="checkline"><input type="checkbox" id="v_ausg_'+i+'"><span>Ausdruck wurde der pflegebedürftigen Person ausgehändigt</span></div>';
+    }
+    html+='</div>';
+  });
+  $('unterlagenListe').innerHTML=html;
+  $('unterlagenBox').classList.remove('hidden');
+  if($('sig_vereinb'))sigVereinb=setupSigInput('vereinb');
+  $('unterlagenListe').onclick=function(e){
+    var b=e.target.closest('button[data-act]');if(!b)return;
+    var d=UNTERLAGEN[Number(b.getAttribute('data-i'))],i=b.getAttribute('data-i');
+    if(b.getAttribute('data-act')==='print'){printDoc(d);return}
+    var fr=$('docframe_'+i);
+    if(!fr.classList.contains('hidden')){fr.classList.add('hidden');b.textContent='Ansehen';return}
+    fr.srcdoc=docHtml(d);fr.classList.remove('hidden');b.textContent='Ausblenden';
+  };
+}
+async function sammleVertraege(){
+  var out=[];
+  for(var i=0;i<UNTERLAGEN.length;i++){
+    var d=UNTERLAGEN[i], item=null;
+    if(d.unterschrift_kunde){
+      var sig=(sigVereinb&&sigVereinb.hasFn())?sigVereinb.getDataUrl():'';
+      if(sig&&await dataUrlIsBlank(sig)){return {fehler:'Die Unterschrift unter der Vereinbarung ist leer – bitte noch einmal unterschreiben.'}}
+      if(sig||d._printed){item={vorlage_id:d.vorlage_id,ort:$('v_ort').value,datum:$('v_datum').value,name:$('v_name')?$('v_name').value:'',sig_kunde_dataurl:sig,felder:d.felder||{}}}
+    }else{
+      var ck=$('v_ausg_'+i);
+      if((ck&&ck.checked)||d._printed){item={vorlage_id:d.vorlage_id,ort:$('v_ort').value,datum:$('v_datum').value,ausgehaendigt:!!(ck&&ck.checked),felder:d.felder||{}}}
+    }
+    if(item)out.push(item);
+  }
+  return {items:out};
+}
 
 /* ---------- Absenden ---------- */
 $('submitBtn').onclick=async function(){
@@ -378,6 +454,8 @@ $('submitBtn').onclick=async function(){
     sigB=sigBerater.getDataUrl();
     if(await dataUrlIsBlank(sigB)){msg.textContent='Die Unterschrift der Beratungsperson ist leer – bitte noch einmal unterschreiben.';return}
   }
+  var vt=await sammleVertraege();
+  if(vt.fehler){msg.textContent=vt.fehler;return}
   msg.textContent='Wird gesendet …';
   var massnahmen=[];
   for(var i=0;i<MASSNAHMEN.length;i++){var el=$('mn_'+MASSNAHMEN[i][0]);if(el&&el.checked)massnahmen.push(MASSNAHMEN[i][0])}
@@ -402,7 +480,8 @@ $('submitBtn').onclick=async function(){
     beratungsperson_name:v('beratungsperson_name'), beratungsperson_funktion:v('beratungsperson_funktion'),
     ausgehaendigt:ck('ausgehaendigt'),
     kasse_name:v('kasse_name'), kasse_anschrift:v('kasse_anschrift'),
-    sig_pflegebeduerftig_dataurl:sigP, sig_beratungsperson_dataurl:sigB
+    sig_pflegebeduerftig_dataurl:sigP, sig_beratungsperson_dataurl:sigB,
+    vertraege:vt.items
   };
   fetch(SUBMIT_URL,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({type:'intake', session:SESSION, role:'main', data:data, dataurl:''})
