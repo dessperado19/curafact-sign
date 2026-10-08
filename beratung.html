@@ -80,7 +80,7 @@ canvas{width:100%;height:150px;background:#fff;border:1px solid #d7dce5;border-r
     <div class="grid3">
       <div><label>Datum</label><input type="date" id="besuch_datum"></div>
       <div><label>Uhrzeit von</label><input type="time" id="besuch_von"></div>
-      <div><label>Uhrzeit bis</label><input type="time" id="besuch_bis"></div>
+      <div><label>Uhrzeit bis</label><select id="besuch_dauer"><option value="">Dauer wählen …</option><option value="30">30 Minuten</option><option value="45">45 Minuten</option><option value="60">1 Stunde</option></select><input type="time" id="besuch_bis" style="margin-top:6px"></div>
     </div>
     <label style="margin-top:10px">Form der Beratung</label>
     <div class="radioRow">
@@ -162,8 +162,8 @@ canvas{width:100%;height:150px;background:#fff;border:1px solid #d7dce5;border-r
   <div class="box">
     <h2>Beratungsperson</h2>
     <div class="grid2">
-      <div><label>Name</label><input type="text" id="beratungsperson_name" autocomplete="off"></div>
-      <div><label>Funktion</label><input type="text" id="beratungsperson_funktion" placeholder="z.B. Pflegefachkraft" autocomplete="off"></div>
+      <div><label>Name</label><select id="beratungsperson_sel"></select><input type="text" id="beratungsperson_name" autocomplete="off" class="hidden" placeholder="Name der Beratungsperson" style="margin-top:6px"></div>
+      <div><label>Funktion</label><select id="beratungsfunktion_sel"></select><input type="text" id="beratungsperson_funktion" class="hidden" placeholder="z.B. Pflegefachkraft" autocomplete="off" style="margin-top:6px"></div>
     </div>
     <div class="checkline"><input type="checkbox" id="ausgehaendigt"><span>Eine Ausfertigung des Nachweises wurde der pflegebedürftigen Person ausgehändigt bzw. wird unverzüglich übermittelt</span></div>
     <div id="sigBeraterBox" class="sigArea hidden">
@@ -358,12 +358,51 @@ function buildToolbars(){
 }
 buildToolbars();
 
+
+/* ---------- Beratungsperson (Auswahl wie in Studio) + Dauer ---------- */
+function bisAusDauer(){
+  var m=/^(\d{1,2}):(\d{2})$/.exec($('besuch_von').value||''), min=Number($('besuch_dauer').value);
+  if(!m||!min)return;
+  var t=Number(m[1])*60+Number(m[2])+min, p=function(n){return String(n).padStart(2,'0')};
+  $('besuch_bis').value=p(Math.floor(t/60)%24)+':'+p(t%60);
+}
+$('besuch_dauer').onchange=bisAusDauer;$('besuch_von').addEventListener('change',bisAusDauer);
+function fillSel(sel,items,cur,andere){
+  var list=items.slice();if(cur&&list.indexOf(cur)<0)list.push(cur);
+  sel.innerHTML=(cur?'':'<option value="">— bitte wählen —</option>')+list.map(function(x){return '<option value="'+escH(x)+'"'+(x===cur?' selected':'')+'>'+escH(x)+'</option>'}).join('')+'<option value="__neu__">'+andere+'</option>';
+  if(cur)sel.value=cur;
+}
+var PERSONEN=[];
+function syncSel(sel,inp){
+  if(sel.value==='__neu__'){inp.classList.remove('hidden');inp.focus()}
+  else{inp.classList.add('hidden');inp.value=sel.value}
+}
+function buildPersonen(personen,funktionen){
+  PERSONEN=personen||[];
+  var ns=$('beratungsperson_sel'), fs=$('beratungsfunktion_sel');
+  var curN=$('beratungsperson_name').value, curF=$('beratungsperson_funktion').value;
+  if(!curN&&PERSONEN.length===1){curN=PERSONEN[0].name;curF=curF||PERSONEN[0].funktion}
+  if(!funktionen||!funktionen.length)funktionen=['Pflegefachkraft','Pflegeberater/in nach § 7a SGB XI'];
+  fillSel(ns,PERSONEN.map(function(p){return p.name}),curN,'+ Andere Person …');
+  fillSel(fs,funktionen,curF,'+ Andere Funktion …');
+  $('beratungsperson_name').value=ns.value==='__neu__'?'':ns.value;$('beratungsperson_funktion').value=fs.value==='__neu__'?'':fs.value;
+  ns.onchange=function(){
+    syncSel(ns,$('beratungsperson_name'));
+    var p=PERSONEN.filter(function(x){return x.name===ns.value})[0];
+    if(p&&p.funktion){fillSel(fs,funktionen,p.funktion,'+ Andere Funktion …');syncSel(fs,$('beratungsperson_funktion'))}
+  };
+  fs.onchange=function(){syncSel(fs,$('beratungsperson_funktion'))};
+}
+buildPersonen([],[]);
+
 /* ---------- Vorausfüllen aus der Sitzung (Kundendaten + Textbausteine aus Studio) ---------- */
 function setV(id,v){var el=$(id);if(el&&v!=null&&v!=='')el.value=v}
 (function(){
   var t=new Date(), p=function(n){return String(n).padStart(2,'0')};
   $('besuch_datum').value=t.getFullYear()+'-'+p(t.getMonth()+1)+'-'+p(t.getDate());
+  $('besuch_von').value=p(t.getHours())+':'+p(t.getMinutes());
   try{setV('beratungsperson_name',localStorage.getItem('cf_ber_name'));setV('beratungsperson_funktion',localStorage.getItem('cf_ber_funktion'))}catch(e){}
+  buildPersonen([],[]);
   if(!SESSION)return;
   fetch(PORTAL_DATA_URL,{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action:'get_session', session:SESSION})
@@ -374,6 +413,7 @@ function setV(id,v){var el=$(id);if(el&&v!=null&&v!=='')el.value=v}
     setV('pflege_kvnr',c.pflege_kvnr);setV('pflege_kasse',c.pflege_kasse);
     setV('kasse_name',c.kasse_name||c.pflege_kasse);setV('kasse_anschrift',c.kasse_anschrift);
     setV('beratungsperson_name',c.beratungsperson_name);setV('beratungsperson_funktion',c.beratungsperson_funktion);
+    buildPersonen(c.beratungspersonen||[],c.beratungsfunktionen||[]);
     if(c.textbausteine&&c.textbausteine.length){BAUSTEINE=c.textbausteine;buildToolbars()}
     if(c.unterlagen&&c.unterlagen.length)renderUnterlagen(c.unterlagen,c.vertrag_ort,c.unterzeichner_vorschlag);
   }).catch(function(){});
