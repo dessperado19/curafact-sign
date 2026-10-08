@@ -382,7 +382,7 @@ function buildPersonen(personen,funktionen){
   var ns=$('beratungsperson_sel'), fs=$('beratungsfunktion_sel');
   var curN=$('beratungsperson_name').value, curF=$('beratungsperson_funktion').value;
   if(!curN&&PERSONEN.length===1){curN=PERSONEN[0].name;curF=curF||PERSONEN[0].funktion}
-  if(!funktionen||!funktionen.length)funktionen=['Pflegefachkraft','Pflegeberater/in nach § 7a SGB XI'];
+  if(!funktionen||!funktionen.length)funktionen=['Pflegedienstleitung','Pflegefachkraft','Pflegeberater/in nach § 7a SGB XI'];
   fillSel(ns,PERSONEN.map(function(p){return p.name}),curN,'+ Andere Person …');
   fillSel(fs,funktionen,curF,'+ Andere Funktion …');
   $('beratungsperson_name').value=ns.value==='__neu__'?'':ns.value;$('beratungsperson_funktion').value=fs.value==='__neu__'?'':fs.value;
