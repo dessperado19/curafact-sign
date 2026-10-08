@@ -34,7 +34,8 @@ c.addEventListener('touchstart',start,{passive:false});c.addEventListener('touch
 c.addEventListener('mousedown',start);c.addEventListener('mousemove',move);c.addEventListener('mouseup',end);
 document.getElementById('clearBtn').onclick=()=>{ctx.clearRect(0,0,c.width,c.height);has=false;document.getElementById('msg').textContent=''};
 document.getElementById('okBtn').onclick=async()=>{
-  if(!has){document.getElementById('msg').textContent='Bitte erst unterschreiben.';return}
+  let ink=0;{const d=ctx.getImageData(0,0,c.width,c.height).data;for(let i=3;i<d.length;i+=4){if(d[i]>10)ink++}}
+  if(!has||ink<150){document.getElementById('msg').textContent='Bitte erst unterschreiben (die Unterschrift ist noch leer).';return}
   if(!TOKEN){document.getElementById('msg').textContent='Ungültiger Link (kein Token).';return}
   document.getElementById('msg').textContent='Wird gesendet …';
   try{

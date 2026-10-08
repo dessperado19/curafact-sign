@@ -454,7 +454,14 @@ function setupSigInput(prefix){
   };
 
   return {
-    hasFn:function(){return hasDrawing || !!uploadedDataUrl},
+    hasFn:function(){
+      if(uploadedDataUrl)return true;
+      if(!hasDrawing)return false;
+      /* nur wirklich gezeichnete Pixel zaehlen - ein Antippen ohne Strich ist keine Unterschrift */
+      var d=ctx.getImageData(0,0,canvas.width,canvas.height).data,n=0;
+      for(var i=3;i<d.length;i+=4){if(d[i]>10){n++;if(n>150)return true}}
+      return false;
+    },
     getDataUrl:function(){return uploadedDataUrl || (hasDrawing?canvas.toDataURL('image/png'):'')},
     setDataUrl:function(dataurl){
       if(!dataurl)return;
