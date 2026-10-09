@@ -173,6 +173,11 @@ button{font-family:inherit;border-radius:12px}
 
   <div class="box">
     <h2>Unterschrift pflegebedürftige Person / gesetzliche Vertretung</h2>
+    <div id="sigFuerBox" style="background:#f4fafd;border:1px solid #cfe4ef;border-radius:12px;padding:12px 14px;margin:6px 0 10px">
+      <b style="color:#0f3f7a">Wofür gilt diese Unterschrift?</b>
+      <div class="checkline" style="margin:8px 0 2px"><input type="checkbox" checked disabled><span>Nachweis über den Beratungsbesuch (immer)</span></div>
+      <div id="sigFuerVereinb"></div>
+    </div>
     <label>Ort, Datum</label><input type="text" id="ort_datum_unterschrift" placeholder="z.B. Harsewinkel, 15.09.2026">
     <div class="sigArea">
       <div class="sigFileRow">
@@ -510,12 +515,31 @@ function setV(id,v){var el=$(id);if(el&&v!=null&&v!=='')el.value=v}
     setV('kasse_name',c.kasse_name||c.pflege_kasse);setV('kasse_anschrift',c.kasse_anschrift);
     setV('beratungsperson_name',c.beratungsperson_name);setV('beratungsperson_funktion',c.beratungsperson_funktion);
     buildPersonen(c.beratungspersonen||[],c.beratungsfunktionen||[]);
+    autoOrtDatum();
     BP_SIGS=c.beratungsperson_unterschriften||{};applyBpSig();
     if(c.gespeicherte_unterschriften){GESPEICHERT=c.gespeicherte_unterschriften;addStoredSigButtons('pflege',sigPflege)}
     if(c.textbausteine&&c.textbausteine.length){BAUSTEINE=c.textbausteine;buildToolbars()}
     if(c.unterlagen&&c.unterlagen.length)renderUnterlagen(c.unterlagen,c.vertrag_ort,c.unterzeichner_vorschlag);
   }).catch(function(){});
 })();
+
+/* Ort, Datum der Unterschrift automatisch (Häuslichkeit = Wohnort, Videokonferenz = Rheda-Wiedenbrück; Datum = Besuchsdatum) */
+function autoOrtDatum(){
+  var f=$('ort_datum_unterschrift');if(!f)return;
+  if(f.value.trim()&&f.getAttribute('data-auto')!=='1')return;
+  var d=$('besuch_datum').value; if(!d)return;
+  var p=d.split('-'); var datum=p.length===3?(p[2]+'.'+p[1]+'.'+p[0]):d;
+  var ort='';
+  if($('form_video')&&$('form_video').checked)ort='Rheda-Wiedenbrück';
+  else{var a=($('pflege_anschrift')&&$('pflege_anschrift').value||'').trim();var m=a.match(/\b\d{5}\s+(.+?)\s*$/);ort=m?m[1].trim():(a.indexOf(',')>=0?a.split(',').pop().trim():'')}
+  f.value=ort?ort+', '+datum:datum; f.setAttribute('data-auto','1');
+}
+document.addEventListener('input',function(e){
+  if(e.target&&e.target.id==='ort_datum_unterschrift')e.target.setAttribute('data-auto','0');
+  if(e.target&&(e.target.id==='besuch_datum'||e.target.id==='pflege_anschrift'))autoOrtDatum();
+});
+document.addEventListener('change',function(e){if(e.target&&e.target.name==='besuch_form')autoOrtDatum()});
+window.addEventListener('load',function(){setTimeout(autoOrtDatum,400)});
 
 /* ---------- Verträge & Unterlagen (Tablet ohne Studio): ansehen, unterschreiben, drucken ---------- */
 var UNTERLAGEN=[], sigVereinb=null;
@@ -546,11 +570,11 @@ function renderUnterlagen(list,ort,vorschlagName){
   var t=new Date(), p=function(n){return String(n).padStart(2,'0')};
   $('v_ort').value=ort||'';
   $('v_datum').value=p(t.getDate())+'.'+p(t.getMonth()+1)+'.'+t.getFullYear();
-  var html='';
+  var html='', sigFuerHtml='';
   UNTERLAGEN.forEach(function(d,i){
     html+='<div class="docCard" id="doc_'+i+'"><b>'+escH(d.titel)+'</b><div class="docBtns"><button type="button" data-act="view" data-i="'+i+'">Ansehen</button><button type="button" class="print" data-act="print" data-i="'+i+'">Drucken</button></div><iframe class="docFrame hidden" id="docframe_'+i+'"></iframe>';
     if(d.unterschrift_kunde){
-      html+='<div class="checkline" style="margin-top:10px"><input type="checkbox" id="v_same_sig" checked><span>Dieselbe Unterschrift wie beim Nachweis (unten) auch hier verwenden – ohne Haken unterschreibt der Kunde hier gesondert</span></div>';
+      sigFuerHtml='<div class="checkline" style="margin:2px 0"><input type="checkbox" id="v_same_sig" checked><span>Beratungsvereinbarung (§ 37 Abs. 3 SGB XI) – nur beim ersten Besuch. Ohne Haken unterschreibt der Kunde die Vereinbarung gesondert.</span></div>';
       html+='<div class="sigArea"><label style="margin-top:0">Name der unterschreibenden Person</label><input type="text" id="v_name" value="'+escH(vorschlagName||'')+'"></div>';
       html+='<div class="sigArea" id="v_own_sig" style="display:none">'+
         '<div class="sigFileRow" style="margin-top:10px"><button type="button" class="fileBtnStyle" id="sigfilebtn_vereinb">Datei wählen</button><input type="file" accept="image/*" id="sigfile_vereinb" class="hidden"><span class="fileStatusStyle" id="sigfilestatus_vereinb">Keine Datei ausgewählt</span></div>'+
@@ -561,6 +585,7 @@ function renderUnterlagen(list,ort,vorschlagName){
     html+='</div>';
   });
   $('unterlagenListe').innerHTML=html;
+  $('sigFuerVereinb').innerHTML=sigFuerHtml;
   $('unterlagenBox').classList.remove('hidden');
   if($('sig_vereinb')){sigVereinb=setupSigInput('vereinb');addStoredSigButtons('vereinb',sigVereinb)}
   if($('v_same_sig'))$('v_same_sig').onchange=function(){
