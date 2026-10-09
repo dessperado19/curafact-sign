@@ -231,6 +231,48 @@ var PORTAL_DATA_URL='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1/porta
 var params=new URLSearchParams(location.search);
 var SESSION=params.get('s')||'';
 var LABEL=params.get('l')||'';
+/* Zugang nur für Mitarbeiter: Sitzungen aus Studio/Portal sind als „nur Mitarbeiter“ markiert. Die Seite verlangt dann die
+   Portal-Anmeldung (Benutzername + Code der Authenticator-App); Kunden bekommen höchstens den Unterschrift-Link. */
+var ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcXVtbHhqbWdxcm13bHhxd3JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NTg0NDcsImV4cCI6MjA3NDAzNDQ0N30.sG8vMck4tSDWwsTay_tUujlRDruFjscrrMOhmlkj8Ws';
+var FN_BASE='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1';
+function FN_HEADERS(){return {'Content-Type':'application/json','Authorization':'Bearer '+ANON_KEY,'apikey':ANON_KEY}}
+var TOKEN='';try{TOKEN=sessionStorage.getItem('cf_ber_token')||''}catch(e){}
+function zeigeLogin(msg){
+  var o=document.getElementById('loginGate');
+  if(!o){
+    o=document.createElement('div');o.id='loginGate';
+    o.style.cssText='position:fixed;inset:0;background:rgba(15,63,122,.96);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    o.innerHTML='<div style="background:#fff;border-radius:16px;padding:26px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.35)">'+
+      '<h2 style="margin:0 0 6px;color:#0f3f7a">Nur für Mitarbeiter</h2>'+
+      '<p style="margin:0 0 14px;color:#556;font-size:14px">Dieses Beratungsformular ist nur für Mitarbeiter der Beratungsstelle. Bitte anmelden.</p>'+
+      '<label style="display:block;font-weight:700;margin:8px 0 4px">Benutzername</label><input id="gateUser" type="text" autocomplete="username" autocapitalize="none" style="width:100%;padding:12px;border:1px solid #cdd8e4;border-radius:10px;font-size:16px">'+
+      '<label style="display:block;font-weight:700;margin:10px 0 4px">Code aus der Authenticator-App</label><input id="gateCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="width:100%;padding:12px;border:1px solid #cdd8e4;border-radius:10px;font-size:22px;letter-spacing:6px;text-align:center">'+
+      '<div id="gateErr" style="color:#b91c1c;font-size:13px;min-height:18px;margin-top:8px"></div>'+
+      '<button type="button" id="gateBtn" style="width:100%;margin-top:6px;padding:13px;border:0;border-radius:10px;background:#0f3f7a;color:#fff;font-weight:800;font-size:16px">Anmelden</button></div>';
+    document.body.appendChild(o);
+    document.getElementById('gateBtn').onclick=gateLogin;
+    document.getElementById('gateCode').addEventListener('keydown',function(e){if(e.key==='Enter')gateLogin()});
+  }
+  o.style.display='flex';
+  document.getElementById('gateErr').textContent=msg||'';
+}
+function gateLogin(){
+  var u=document.getElementById('gateUser').value.trim().toLowerCase(), c=document.getElementById('gateCode').value.trim();
+  var err=document.getElementById('gateErr');err.textContent='';
+  if(!u||!c){err.textContent='Bitte Benutzername und Code eingeben.';return}
+  var b=document.getElementById('gateBtn');b.disabled=true;b.textContent='Prüfe …';
+  fetch(FN_BASE+'/portal-login',{method:'POST',headers:FN_HEADERS(),body:JSON.stringify({username:u,code:c})})
+    .then(function(r){return r.json().catch(function(){return {ok:false}})})
+    .then(function(r){
+      b.disabled=false;b.textContent='Anmelden';
+      if(!r.ok){err.textContent=r.message||'Anmeldung fehlgeschlagen.';return}
+      TOKEN=r.token;try{sessionStorage.setItem('cf_ber_token',TOKEN)}catch(e){}
+      document.getElementById('loginGate').style.display='none';
+      document.getElementById('gateCode').value='';
+      if(window.ladeSitzung)window.ladeSitzung();
+      buildToolbars();
+    }).catch(function(e){b.disabled=false;b.textContent='Anmelden';err.textContent='Netzwerkfehler: '+e});
+}
 if(LABEL)document.getElementById('pageSub').textContent=LABEL;
 function $(id){return document.getElementById(id)}
 
@@ -439,6 +481,7 @@ function buildToolbars(){
       order.forEach(function(k){html+='<optgroup label="'+k.replace(/"/g,'&quot;')+'">'+groups[k].map(function(b){return '<option value="'+b.id+'">'+String(b.titel).replace(/</g,'&lt;')+'</option>'}).join('')+'</optgroup>'});
       html+='</select>';
     }
+    if(TOKEN){html+='<button type="button" class="kiBtn" data-modus="rechtschreibung" data-feld="'+feld+'" style="padding:6px 10px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;color:#0f3f7a;font-weight:700;font-size:13px">✓ Rechtschreibung</button><button type="button" class="kiBtn" data-modus="umschreiben" data-feld="'+feld+'" style="padding:6px 10px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;color:#0f3f7a;font-weight:700;font-size:13px">✎ Satz umschreiben</button>'}
     html+='<span class="tbCount"></span>';
     bar.innerHTML=html;
     var sel=bar.querySelector('.tbSel');
@@ -458,6 +501,50 @@ function buildToolbars(){
   })(tas[i])}
 }
 buildToolbars();
+
+/* KI-Hilfe (nur für angemeldete Mitarbeiter): Namen, Daten und Nummern werden VOR dem Senden durch Platzhalter ersetzt */
+function kiAnonymisieren(text){
+  var ers={}, zaehl={};
+  function ph(pre,w){for(var k in ers){if(ers[k]===w)return k}zaehl[pre]=(zaehl[pre]||0)+1;var k2='['+pre+'_'+zaehl[pre]+']';ers[k2]=w;return k2}
+  var namen=[($('pflege_name')||{}).value||'',($('beratungsperson_name')||{}).value||''], tokens=[];
+  namen.forEach(function(n){String(n).split(/[\s,]+/).forEach(function(t){t=t.replace(/\.$/,'');if(t.length>=3&&tokens.map(function(x){return x.toLowerCase()}).indexOf(t.toLowerCase())<0)tokens.push(t)})});
+  tokens.sort(function(a,b){return b.length-a.length});
+  var s=text;
+  s=s.replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g,function(m){return ph('EMAIL',m)});
+  s=s.replace(/\b\d{1,2}\.\d{1,2}\.(?:\d{4}|\d{2})\b/g,function(m){return ph('DATUM',m)});
+  s=s.replace(/\d[\d \/-]{5,}\d/g,function(m){return ph('ZAHL',m)});
+  tokens.forEach(function(t){s=s.replace(new RegExp('(^|[^A-Za-zÀ-ÿ0-9_])'+t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![A-Za-zÀ-ÿ0-9_])','gi'),function(m,pre){return pre+ph('NAME',m.slice(pre.length))})});
+  return {safe:s,ers:ers};
+}
+function kiZurueck(text,ers){var keys=Object.keys(ers).sort(function(a,b){return b.length-a.length});keys.forEach(function(k){text=text.split(k).join(ers[k])});return text}
+document.addEventListener('click',function(e){
+  var kb=e.target.closest&&e.target.closest('.kiBtn');
+  if(kb){
+    var feld=kb.getAttribute('data-feld'), ta=document.querySelector('textarea[data-tb="'+feld+'"]'), bar=document.querySelector('[data-tbbar="'+feld+'"]');
+    if(!ta||!bar)return;
+    var box=bar.nextElementSibling;
+    if(!box||!box.classList.contains('kiBox')){box=document.createElement('div');box.className='kiBox';bar.parentNode.insertBefore(box,bar.nextSibling)}
+    if(!ta.value.trim()){box.innerHTML='<div style="color:#b91c1c;font-size:13px;margin:6px 0">Bitte zuerst einen Text eingeben.</div>';return}
+    var a=kiAnonymisieren(ta.value);
+    box.innerHTML='<div style="color:#667;font-size:13px;margin:6px 0">KI arbeitet … (Namen, Daten und Nummern werden nicht übertragen)</div>';
+    fetch(PORTAL_DATA_URL,{method:'POST',headers:FN_HEADERS(),body:JSON.stringify({action:'ki_text',token:TOKEN,modus:kb.getAttribute('data-modus'),text:a.safe})})
+      .then(function(r){return r.json().catch(function(){return {ok:false}})})
+      .then(function(r){
+        if(r.login_required||r.auth_required){zeigeLogin('Die Anmeldung ist abgelaufen. Bitte neu anmelden.');box.innerHTML='';return}
+        if(!r.ok){box.innerHTML='<div style="color:#b91c1c;font-size:13px;margin:6px 0">'+String(r.message||'KI nicht erreichbar.').replace(/</g,'&lt;')+'</div>';return}
+        var neu=kiZurueck(r.text,a.ers);box._neu=neu;box._ta=ta;
+        var esc=function(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;')};
+        box.innerHTML='<div style="border:1px solid #cdd8e4;border-radius:12px;padding:10px 12px;background:#f6fbfe;margin:6px 0"><div style="font-weight:800;color:#0f3f7a;margin-bottom:6px">'+(kb.getAttribute('data-modus')==='umschreiben'?'Vorschlag: Sätze umgeschrieben':'Vorschlag: Rechtschreibung korrigiert')+'</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><div style="font-size:12px;color:#667">Original</div><div style="white-space:pre-wrap;font-size:14px">'+esc(ta.value)+'</div></div><div><div style="font-size:12px;color:#667">Vorschlag</div><div style="white-space:pre-wrap;font-size:14px;font-weight:600">'+esc(neu)+'</div></div></div><div style="margin-top:8px;display:flex;gap:8px"><button type="button" class="kiOk" style="padding:8px 12px;border:0;border-radius:8px;background:#0f3f7a;color:#fff;font-weight:800">Vorschlag übernehmen</button><button type="button" class="kiNo" style="padding:8px 12px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;font-weight:700">Verwerfen</button></div><div style="font-size:12px;color:#667;margin-top:6px">KI-Vorschläge bitte immer prüfen – Sie bleiben verantwortlich für den Inhalt.</div></div>';
+      }).catch(function(e){box.innerHTML='<div style="color:#b91c1c;font-size:13px">Netzwerkfehler: '+e+'</div>'});
+    return;
+  }
+  var ok=e.target.closest&&e.target.closest('.kiOk'), no=e.target.closest&&e.target.closest('.kiNo');
+  if(ok||no){
+    var bx=(ok||no).closest('.kiBox');
+    if(ok&&bx&&bx._neu!=null){bx._ta.value=bx._neu;updateCounter(bx._ta)}
+    if(bx){bx.innerHTML='';bx._neu=null}
+  }
+});
 
 
 /* ---------- Beratungsperson (Auswahl wie in Studio) + Dauer ---------- */
@@ -506,9 +593,10 @@ function setV(id,v){var el=$(id);if(el&&v!=null&&v!=='')el.value=v}
   try{setV('beratungsperson_name',localStorage.getItem('cf_ber_name'));setV('beratungsperson_funktion',localStorage.getItem('cf_ber_funktion'))}catch(e){}
   buildPersonen([],[]);
   if(!SESSION)return;
-  fetch(PORTAL_DATA_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'get_session', session:SESSION})
+  window.ladeSitzung=function(){ fetch(PORTAL_DATA_URL,{method:'POST',headers:FN_HEADERS(),
+    body:JSON.stringify({action:'get_session', session:SESSION, token:TOKEN})
   }).then(function(res){return res.json().catch(function(){return {ok:false}})}).then(function(r){
+    if(r.login_required){try{sessionStorage.removeItem('cf_ber_token')}catch(e){}TOKEN='';zeigeLogin(r.message||'');return}
     if(!r.ok||!r.customer)return;
     var c=r.customer;
     setV('pflege_name',c.pflege_name);setV('pflege_anschrift',c.pflege_anschrift);setV('pflege_geburtsdatum',c.pflege_geburtsdatum);
@@ -521,7 +609,8 @@ function setV(id,v){var el=$(id);if(el&&v!=null&&v!=='')el.value=v}
     if(c.gespeicherte_unterschriften){GESPEICHERT=c.gespeicherte_unterschriften;addStoredSigButtons('pflege',sigPflege)}
     if(c.textbausteine&&c.textbausteine.length){BAUSTEINE=c.textbausteine;buildToolbars()}
     if(c.unterlagen&&c.unterlagen.length)renderUnterlagen(c.unterlagen,c.vertrag_ort,c.unterzeichner_vorschlag);
-  }).catch(function(){});
+  }).catch(function(){}); };
+  window.ladeSitzung();
 })();
 
 /* Ort, Datum der Unterschrift automatisch (Häuslichkeit = Wohnort, Videokonferenz = Rheda-Wiedenbrück; Datum = Besuchsdatum) */
@@ -662,12 +751,14 @@ $('submitBtn').onclick=async function(){
     vertraege:vt.items
   };
   fetch(SUBMIT_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({type:'intake', session:SESSION, role:'main', data:data, dataurl:''})
+    body:JSON.stringify({type:'intake', session:SESSION, role:'main', data:data, dataurl:'', token:TOKEN})
   }).then(function(res){
     return res.json().catch(function(){return {ok:false}}).then(function(j){return {res:res,j:j}});
   }).then(function(r){
     if(r.res.ok && r.j.ok){msg.textContent='Danke! Die Angaben wurden übertragen und können jetzt in Studio übernommen werden. Dieses Fenster kann geschlossen werden.';$('submitBtn').disabled=true}
-    else{msg.textContent='Fehler beim Senden ('+r.res.status+'). '+(r.j&&r.j.message?r.j.message:'')}
+    else{
+      if(r.res.status===401||(r.j&&r.j.login_required)){try{sessionStorage.removeItem('cf_ber_token')}catch(e){}TOKEN='';zeigeLogin('Die Anmeldung ist abgelaufen. Bitte neu anmelden und dann noch einmal senden.')}
+      msg.textContent='Fehler beim Senden ('+r.res.status+'). '+(r.j&&r.j.message?r.j.message:'')}
   }).catch(function(e){msg.textContent='Fehler: '+e});
 };
 </script>
