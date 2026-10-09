@@ -194,8 +194,8 @@ button{font-family:inherit;border-radius:12px}
       <div><label>Funktion</label><select id="beratungsfunktion_sel"></select><input type="text" id="beratungsperson_funktion" class="hidden" placeholder="z.B. Pflegefachkraft" autocomplete="off" style="margin-top:6px"></div>
     </div>
     <div class="checkline"><input type="checkbox" id="ausgehaendigt"><span>Eine Ausfertigung des Nachweises wurde der pflegebedürftigen Person ausgehändigt bzw. wird unverzüglich übermittelt</span></div>
-    <div id="sigBeraterBox" class="sigArea hidden">
-      <label style="margin-top:0"><b>Unterschrift Beratungsperson</b> – nur bei Beratung per Videokonferenz</label>
+    <div id="sigBeraterBox" class="sigArea">
+      <label style="margin-top:0"><b>Unterschrift Beratungsperson</b> – erscheint im Feld „Stempel und Unterschrift der Beratungsperson“ (bei Videokonferenz zusätzlich im Videofeld)</label>
       <div class="sigFileRow">
         <button type="button" class="fileBtnStyle" id="sigfilebtn_berater">Datei wählen</button>
         <input type="file" accept="image/*" id="sigfile_berater" class="hidden">
@@ -248,8 +248,8 @@ var MASSNAHMEN=[
 
 $('sicher_ja').onchange=function(){$('sicher_grund_box').classList.add('hidden')};
 $('sicher_nein').onchange=function(){$('sicher_grund_box').classList.remove('hidden')};
-$('form_video').onchange=function(){$('sigBeraterBox').classList.remove('hidden')};
-$('form_haeuslich').onchange=function(){$('sigBeraterBox').classList.add('hidden')};
+
+
 $('massnahmen_keine').onchange=function(){
   if(this.checked){for(var i=0;i<MASSNAHMEN.length;i++){$('mn_'+MASSNAHMEN[i][0]).checked=false}$('massnahmen_erlaeuterung').value='';updateCounters()}
 };
@@ -365,7 +365,12 @@ function setupSigInput(prefix){
   };
 }
 var sigPflege=setupSigInput('pflege');
-var GESPEICHERT={};
+var GESPEICHERT={}, BP_SIGS={};
+function applyBpSig(){
+  var n=($('beratungsperson_name').value||'').trim().toLowerCase();
+  if(!n||typeof sigBerater==='undefined'||sigBerater.hasFn())return;
+  for(var k in BP_SIGS){if(k.trim().toLowerCase()===n){sigBerater.setDataUrl(BP_SIGS[k],'Gespeicherte Unterschrift ('+k+')');return}}
+}
 /* Bereits in der Kundenakte gespeicherte Unterschrift wiederverwenden (kommt mit der Sitzung aus Studio) */
 function addStoredSigButtons(prefix,sigObj){
   var row=document.querySelector('#sigfilebtn_'+prefix);
@@ -478,6 +483,7 @@ function buildPersonen(personen,funktionen){
   $('beratungsperson_name').value=ns.value==='__neu__'?'':ns.value;$('beratungsperson_funktion').value=fs.value==='__neu__'?'':fs.value;
   ns.onchange=function(){
     syncSel(ns,$('beratungsperson_name'));
+    setTimeout(applyBpSig,0);
     var p=PERSONEN.filter(function(x){return x.name===ns.value})[0];
     if(p&&p.funktion){fillSel(fs,funktionen,p.funktion,'+ Andere Funktion …');syncSel(fs,$('beratungsperson_funktion'))}
   };
@@ -504,6 +510,7 @@ function setV(id,v){var el=$(id);if(el&&v!=null&&v!=='')el.value=v}
     setV('kasse_name',c.kasse_name||c.pflege_kasse);setV('kasse_anschrift',c.kasse_anschrift);
     setV('beratungsperson_name',c.beratungsperson_name);setV('beratungsperson_funktion',c.beratungsperson_funktion);
     buildPersonen(c.beratungspersonen||[],c.beratungsfunktionen||[]);
+    BP_SIGS=c.beratungsperson_unterschriften||{};applyBpSig();
     if(c.gespeicherte_unterschriften){GESPEICHERT=c.gespeicherte_unterschriften;addStoredSigButtons('pflege',sigPflege)}
     if(c.textbausteine&&c.textbausteine.length){BAUSTEINE=c.textbausteine;buildToolbars()}
     if(c.unterlagen&&c.unterlagen.length)renderUnterlagen(c.unterlagen,c.vertrag_ort,c.unterzeichner_vorschlag);
@@ -595,7 +602,7 @@ $('submitBtn').onclick=async function(){
   if(await dataUrlIsBlank(sigP)){msg.textContent='Die Unterschrift ist leer – bitte noch einmal unterschreiben.';return}
   var video=$('form_video').checked;
   var sigB='';
-  if(video&&sigBerater.hasFn()){
+  if(sigBerater.hasFn()){
     sigB=sigBerater.getDataUrl();
     if(await dataUrlIsBlank(sigB)){msg.textContent='Die Unterschrift der Beratungsperson ist leer – bitte noch einmal unterschreiben.';return}
   }
