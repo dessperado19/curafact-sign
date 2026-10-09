@@ -286,10 +286,31 @@ function setupSigInput(prefix){
   };
   return {
     hasFn:function(){return hasDrawing || !!uploadedDataUrl},
-    getDataUrl:function(){return uploadedDataUrl || (hasDrawing?canvas.toDataURL('image/png'):'')}
+    getDataUrl:function(){return uploadedDataUrl || (hasDrawing?canvas.toDataURL('image/png'):'')},
+    setDataUrl:function(du,name){
+      uploadedDataUrl=du;hasDrawing=false;
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      fileStatus.textContent=name||'Gespeicherte Unterschrift';
+      preview.src=du;preview.classList.remove('hidden');
+    }
   };
 }
 var sigPflege=setupSigInput('pflege');
+var GESPEICHERT={};
+/* Bereits in der Kundenakte gespeicherte Unterschrift wiederverwenden (kommt mit der Sitzung aus Studio) */
+function addStoredSigButtons(prefix,sigObj){
+  var row=document.querySelector('#sigfilebtn_'+prefix);
+  if(!row||!sigObj)return;
+  row=row.parentNode;
+  Array.prototype.forEach.call(row.querySelectorAll('.storedBtn'),function(b){b.remove()});
+  [['pflege','pflegebedürftige Person'],['person','gesetzliche Vertretung']].forEach(function(k){
+    if(!GESPEICHERT[k[0]])return;
+    var b=document.createElement('button');
+    b.type='button';b.className='fileBtnStyle storedBtn';b.textContent='Gespeicherte Unterschrift: '+k[1];
+    b.onclick=function(){sigObj.setDataUrl(GESPEICHERT[k[0]],'Gespeicherte Unterschrift ('+k[1]+')')};
+    row.appendChild(b);
+  });
+}
 var sigBerater=setupSigInput('berater');
 
 /* ---------- Textbausteine (kommen aus Studio mit der Sitzung) ---------- */
@@ -414,6 +435,7 @@ function setV(id,v){var el=$(id);if(el&&v!=null&&v!=='')el.value=v}
     setV('kasse_name',c.kasse_name||c.pflege_kasse);setV('kasse_anschrift',c.kasse_anschrift);
     setV('beratungsperson_name',c.beratungsperson_name);setV('beratungsperson_funktion',c.beratungsperson_funktion);
     buildPersonen(c.beratungspersonen||[],c.beratungsfunktionen||[]);
+    if(c.gespeicherte_unterschriften){GESPEICHERT=c.gespeicherte_unterschriften;addStoredSigButtons('pflege',sigPflege)}
     if(c.textbausteine&&c.textbausteine.length){BAUSTEINE=c.textbausteine;buildToolbars()}
     if(c.unterlagen&&c.unterlagen.length)renderUnterlagen(c.unterlagen,c.vertrag_ort,c.unterzeichner_vorschlag);
   }).catch(function(){});
@@ -454,7 +476,7 @@ function renderUnterlagen(list,ort,vorschlagName){
   });
   $('unterlagenListe').innerHTML=html;
   $('unterlagenBox').classList.remove('hidden');
-  if($('sig_vereinb'))sigVereinb=setupSigInput('vereinb');
+  if($('sig_vereinb')){sigVereinb=setupSigInput('vereinb');addStoredSigButtons('vereinb',sigVereinb)}
   $('unterlagenListe').onclick=function(e){
     var b=e.target.closest('button[data-act]');if(!b)return;
     var d=UNTERLAGEN[Number(b.getAttribute('data-i'))],i=b.getAttribute('data-i');
