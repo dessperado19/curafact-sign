@@ -267,6 +267,14 @@ function zeigeLogin(msg){
   o.style.display='flex';
   document.getElementById('gateErr').textContent=msg||'';
 }
+function mitarbeiterHinweis(){
+  /* Wer über den Kundenlink (mit Schlüssel) kommt, kann sich zusätzlich als Mitarbeiter anmelden - nur dann gibt es die KI-Hilfe */
+  if(!KEY||TOKEN||document.getElementById('maHinweis'))return;
+  var d=document.createElement('div');d.id='maHinweis';d.style.cssText='max-width:760px;margin:6px auto 0;padding:0 16px;font-size:13px;text-align:right';
+  d.innerHTML='<a href="#" id="maLink" style="color:#0f3f7a">Mitarbeiter-Anmeldung (für KI-Hilfe)</a>';
+  document.body.insertBefore(d,document.body.firstChild.nextSibling);
+  document.getElementById('maLink').onclick=function(e){e.preventDefault();zeigeLogin('')};
+}
 function gateLogin(){
   var u=document.getElementById('gateUser').value.trim().toLowerCase(), c=document.getElementById('gateCode').value.trim();
   var err=document.getElementById('gateErr');err.textContent='';
@@ -280,6 +288,7 @@ function gateLogin(){
       TOKEN=r.token;try{localStorage.setItem(SESSION_KEY,JSON.stringify({token:r.token,expires_at:r.expires_at,user:r.user,last:Date.now()}))}catch(e){}
       document.getElementById('loginGate').style.display='none';
       document.getElementById('gateCode').value='';
+      var mh=document.getElementById('maHinweis');if(mh)mh.remove();
       if(window.ladeSitzung)window.ladeSitzung();
       buildToolbars();
     }).catch(function(e){b.disabled=false;b.textContent='Anmelden';err.textContent='Netzwerkfehler: '+e});
@@ -492,7 +501,7 @@ function buildToolbars(){
       order.forEach(function(k){html+='<optgroup label="'+k.replace(/"/g,'&quot;')+'">'+groups[k].map(function(b){return '<option value="'+b.id+'">'+String(b.titel).replace(/</g,'&lt;')+'</option>'}).join('')+'</optgroup>'});
       html+='</select>';
     }
-    if(TOKEN||KEY){html+='<button type="button" class="kiBtn" data-modus="rechtschreibung" data-feld="'+feld+'" style="padding:6px 10px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;color:#0f3f7a;font-weight:700;font-size:13px">✓ Rechtschreibung</button><button type="button" class="kiBtn" data-modus="umschreiben" data-feld="'+feld+'" style="padding:6px 10px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;color:#0f3f7a;font-weight:700;font-size:13px">✎ Satz umschreiben</button>'}
+    if(TOKEN){html+='<button type="button" class="kiBtn" data-modus="rechtschreibung" data-feld="'+feld+'" style="padding:6px 10px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;color:#0f3f7a;font-weight:700;font-size:13px">✓ Rechtschreibung</button><button type="button" class="kiBtn" data-modus="umschreiben" data-feld="'+feld+'" style="padding:6px 10px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;color:#0f3f7a;font-weight:700;font-size:13px">✎ Satz umschreiben</button>'}
     html+='<span class="tbCount"></span>';
     bar.innerHTML=html;
     var sel=bar.querySelector('.tbSel');
@@ -538,7 +547,7 @@ document.addEventListener('click',function(e){
     if(!ta.value.trim()){box.innerHTML='<div style="color:#b91c1c;font-size:13px;margin:6px 0">Bitte zuerst einen Text eingeben.</div>';return}
     var a=kiAnonymisieren(ta.value);
     box.innerHTML='<div style="color:#667;font-size:13px;margin:6px 0">KI arbeitet … (Namen, Daten und Nummern werden nicht übertragen)</div>';
-    fetch(PORTAL_DATA_URL,{method:'POST',headers:FN_HEADERS(),body:JSON.stringify({action:'ki_text',token:TOKEN,session:SESSION,k:KEY,modus:kb.getAttribute('data-modus'),text:a.safe})})
+    fetch(PORTAL_DATA_URL,{method:'POST',headers:FN_HEADERS(),body:JSON.stringify({action:'ki_text',token:TOKEN,modus:kb.getAttribute('data-modus'),text:a.safe})})
       .then(function(r){return r.json().catch(function(){return {ok:false}})})
       .then(function(r){
         if(r.login_required||r.auth_required){zeigeLogin('Die Anmeldung ist abgelaufen. Bitte neu anmelden.');box.innerHTML='';return}
@@ -640,7 +649,7 @@ document.addEventListener('input',function(e){
   if(e.target&&(e.target.id==='besuch_datum'||e.target.id==='pflege_anschrift'))autoOrtDatum();
 });
 document.addEventListener('change',function(e){if(e.target&&e.target.name==='besuch_form')autoOrtDatum()});
-window.addEventListener('load',function(){setTimeout(autoOrtDatum,400)});
+window.addEventListener('load',function(){setTimeout(autoOrtDatum,400);mitarbeiterHinweis()});
 
 /* ---------- Verträge & Unterlagen (Tablet ohne Studio): ansehen, unterschreiben, drucken ---------- */
 var UNTERLAGEN=[], sigVereinb=null;
