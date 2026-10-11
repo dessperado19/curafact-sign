@@ -380,9 +380,23 @@ let customers = [];
 let currentCustomer = null;
 let lastBerechnung = null; // {html, title} - fuer den Drucken-Button
 
-function saveSession(s){ session = s; try{ sessionStorage.setItem('curafact_portal_session', JSON.stringify(s)); }catch(e){} }
-function loadSession(){ try{ const raw = sessionStorage.getItem('curafact_portal_session'); if(raw) session = JSON.parse(raw); }catch(e){} }
-function clearSession(){ session = null; try{ sessionStorage.removeItem('curafact_portal_session'); }catch(e){} }
+// Anmeldung gilt tab-übergreifend (localStorage), damit Beratung/Fernaufnahme im selben Browser ohne neuen Code gehen.
+// Automatische Abmeldung nach 30 Minuten ohne Aktivität.
+const SESSION_KEY = 'curafact_portal_session', IDLE_MS = 30 * 60 * 1000;
+function saveSession(s){ session = s; s.last = Date.now(); try{ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }catch(e){} }
+function loadSession(){ try{ const raw = localStorage.getItem(SESSION_KEY); if(raw){ const s = JSON.parse(raw); if(s && Date.now() - (s.last||0) < IDLE_MS) session = s; else localStorage.removeItem(SESSION_KEY); } }catch(e){} }
+function clearSession(){ session = null; try{ localStorage.removeItem(SESSION_KEY); }catch(e){} }
+let _lastTouch = 0;
+function touchSession(){ const n = Date.now(); if(!session || n - _lastTouch < 10000) return; _lastTouch = n; session.last = n; try{ localStorage.setItem(SESSION_KEY, JSON.stringify(session)); }catch(e){} }
+['click','keydown','touchstart','mousemove'].forEach(ev => document.addEventListener(ev, touchSession, {passive:true}));
+setInterval(() => {
+  try{
+    const raw = localStorage.getItem(SESSION_KEY);
+    const s = raw ? JSON.parse(raw) : null;
+    if(!s || Date.now() - (s.last||0) >= IDLE_MS){ if(session){ doLogout(); alert('Aus Sicherheitsgründen wurdest du nach 30 Minuten Inaktivität abgemeldet.'); } }
+    else if(session){ session.last = s.last; }
+  }catch(e){}
+}, 30000);
 
 async function doLogin(){
   const user = document.getElementById('loginUser').value.trim();
@@ -768,7 +782,7 @@ async function startFernaufnahme(action, label, customer){
   const r = await callFn('portal-data', body);
   if(!r.ok){ alert(r.message || 'Fernaufnahme konnte nicht gestartet werden.'); return; }
   const base = location.origin + location.pathname.replace(/[^/]*$/, '');
-  const url = base + r.page + '?s=' + encodeURIComponent(r.session) + '&l=' + encodeURIComponent(r.label || '');
+  const url = base + r.page + '?s=' + encodeURIComponent(r.session) + (r.key ? '&k=' + encodeURIComponent(r.key) : '') + '&l=' + encodeURIComponent(r.label || '');
   document.getElementById('faModalLabel').textContent = label ? ('Für: ' + label + ' (Änderungen - wird in der Desktop-App dem bestehenden Kunden zugeordnet)') : 'Neuer Kunde';
   document.getElementById('faUrl').textContent = url;
   const qrBox = document.getElementById('faQrBox');

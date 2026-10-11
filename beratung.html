@@ -236,7 +236,18 @@ var LABEL=params.get('l')||'';
 var ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcXVtbHhqbWdxcm13bHhxd3JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NTg0NDcsImV4cCI6MjA3NDAzNDQ0N30.sG8vMck4tSDWwsTay_tUujlRDruFjscrrMOhmlkj8Ws';
 var FN_BASE='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1';
 function FN_HEADERS(){return {'Content-Type':'application/json','Authorization':'Bearer '+ANON_KEY,'apikey':ANON_KEY}}
-var TOKEN='';try{TOKEN=sessionStorage.getItem('cf_ber_token')||''}catch(e){}
+var KEY=params.get('k')||'';   /* Zugangsschlüssel aus Studio/Portal: gilt ohne Code */
+var SESSION_KEY='curafact_portal_session', IDLE_MS=30*60*1000;
+function ladeLogin(){try{var s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(s&&s.token&&Date.now()-(s.last||0)<IDLE_MS)return s.token;if(s)localStorage.removeItem(SESSION_KEY)}catch(e){}return ''}
+function loescheLogin(){try{localStorage.removeItem(SESSION_KEY)}catch(e){}TOKEN=''}
+var TOKEN=ladeLogin();   /* gemeinsame Portal-Anmeldung (gleicher Browser), 30 Minuten Inaktivität */
+var _lastTouch=0;
+function touchLogin(){var n=Date.now();if(!TOKEN||n-_lastTouch<10000)return;_lastTouch=n;try{var s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(s){s.last=n;localStorage.setItem(SESSION_KEY,JSON.stringify(s))}}catch(e){}}
+['click','keydown','touchstart','input'].forEach(function(ev){document.addEventListener(ev,touchLogin,{passive:true})});
+setInterval(function(){
+  if(!TOKEN)return;
+  if(!ladeLogin()){TOKEN='';if(!KEY){zeigeLogin('Aus Sicherheitsgründen wurdest du nach 30 Minuten Inaktivität abgemeldet. Deine Eingaben bleiben erhalten.')}buildToolbars()}
+},30000);
 function zeigeLogin(msg){
   var o=document.getElementById('loginGate');
   if(!o){
@@ -266,7 +277,7 @@ function gateLogin(){
     .then(function(r){
       b.disabled=false;b.textContent='Anmelden';
       if(!r.ok){err.textContent=r.message||'Anmeldung fehlgeschlagen.';return}
-      TOKEN=r.token;try{sessionStorage.setItem('cf_ber_token',TOKEN)}catch(e){}
+      TOKEN=r.token;try{localStorage.setItem(SESSION_KEY,JSON.stringify({token:r.token,expires_at:r.expires_at,user:r.user,last:Date.now()}))}catch(e){}
       document.getElementById('loginGate').style.display='none';
       document.getElementById('gateCode').value='';
       if(window.ladeSitzung)window.ladeSitzung();
@@ -481,7 +492,7 @@ function buildToolbars(){
       order.forEach(function(k){html+='<optgroup label="'+k.replace(/"/g,'&quot;')+'">'+groups[k].map(function(b){return '<option value="'+b.id+'">'+String(b.titel).replace(/</g,'&lt;')+'</option>'}).join('')+'</optgroup>'});
       html+='</select>';
     }
-    if(TOKEN){html+='<button type="button" class="kiBtn" data-modus="rechtschreibung" data-feld="'+feld+'" style="padding:6px 10px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;color:#0f3f7a;font-weight:700;font-size:13px">✓ Rechtschreibung</button><button type="button" class="kiBtn" data-modus="umschreiben" data-feld="'+feld+'" style="padding:6px 10px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;color:#0f3f7a;font-weight:700;font-size:13px">✎ Satz umschreiben</button>'}
+    if(TOKEN||KEY){html+='<button type="button" class="kiBtn" data-modus="rechtschreibung" data-feld="'+feld+'" style="padding:6px 10px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;color:#0f3f7a;font-weight:700;font-size:13px">✓ Rechtschreibung</button><button type="button" class="kiBtn" data-modus="umschreiben" data-feld="'+feld+'" style="padding:6px 10px;border:1px solid #cdd8e4;border-radius:8px;background:#fff;color:#0f3f7a;font-weight:700;font-size:13px">✎ Satz umschreiben</button>'}
     html+='<span class="tbCount"></span>';
     bar.innerHTML=html;
     var sel=bar.querySelector('.tbSel');
@@ -527,7 +538,7 @@ document.addEventListener('click',function(e){
     if(!ta.value.trim()){box.innerHTML='<div style="color:#b91c1c;font-size:13px;margin:6px 0">Bitte zuerst einen Text eingeben.</div>';return}
     var a=kiAnonymisieren(ta.value);
     box.innerHTML='<div style="color:#667;font-size:13px;margin:6px 0">KI arbeitet … (Namen, Daten und Nummern werden nicht übertragen)</div>';
-    fetch(PORTAL_DATA_URL,{method:'POST',headers:FN_HEADERS(),body:JSON.stringify({action:'ki_text',token:TOKEN,modus:kb.getAttribute('data-modus'),text:a.safe})})
+    fetch(PORTAL_DATA_URL,{method:'POST',headers:FN_HEADERS(),body:JSON.stringify({action:'ki_text',token:TOKEN,session:SESSION,k:KEY,modus:kb.getAttribute('data-modus'),text:a.safe})})
       .then(function(r){return r.json().catch(function(){return {ok:false}})})
       .then(function(r){
         if(r.login_required||r.auth_required){zeigeLogin('Die Anmeldung ist abgelaufen. Bitte neu anmelden.');box.innerHTML='';return}
@@ -594,9 +605,9 @@ function setV(id,v){var el=$(id);if(el&&v!=null&&v!=='')el.value=v}
   buildPersonen([],[]);
   if(!SESSION)return;
   window.ladeSitzung=function(){ fetch(PORTAL_DATA_URL,{method:'POST',headers:FN_HEADERS(),
-    body:JSON.stringify({action:'get_session', session:SESSION, token:TOKEN})
+    body:JSON.stringify({action:'get_session', session:SESSION, token:TOKEN, k:KEY})
   }).then(function(res){return res.json().catch(function(){return {ok:false}})}).then(function(r){
-    if(r.login_required){try{sessionStorage.removeItem('cf_ber_token')}catch(e){}TOKEN='';zeigeLogin(r.message||'');return}
+    if(r.login_required){loescheLogin();zeigeLogin(r.message||'');return}
     if(!r.ok||!r.customer)return;
     var c=r.customer;
     setV('pflege_name',c.pflege_name);setV('pflege_anschrift',c.pflege_anschrift);setV('pflege_geburtsdatum',c.pflege_geburtsdatum);
@@ -751,13 +762,13 @@ $('submitBtn').onclick=async function(){
     vertraege:vt.items
   };
   fetch(SUBMIT_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({type:'intake', session:SESSION, role:'main', data:data, dataurl:'', token:TOKEN})
+    body:JSON.stringify({type:'intake', session:SESSION, role:'main', data:data, dataurl:'', token:TOKEN, k:KEY})
   }).then(function(res){
     return res.json().catch(function(){return {ok:false}}).then(function(j){return {res:res,j:j}});
   }).then(function(r){
     if(r.res.ok && r.j.ok){msg.textContent='Danke! Die Angaben wurden übertragen und können jetzt in Studio übernommen werden. Dieses Fenster kann geschlossen werden.';$('submitBtn').disabled=true}
     else{
-      if(r.res.status===401||(r.j&&r.j.login_required)){try{sessionStorage.removeItem('cf_ber_token')}catch(e){}TOKEN='';zeigeLogin('Die Anmeldung ist abgelaufen. Bitte neu anmelden und dann noch einmal senden.')}
+      if(r.res.status===401||(r.j&&r.j.login_required)){loescheLogin();zeigeLogin('Die Anmeldung ist abgelaufen. Bitte neu anmelden und dann noch einmal senden.')}
       msg.textContent='Fehler beim Senden ('+r.res.status+'). '+(r.j&&r.j.message?r.j.message:'')}
   }).catch(function(e){msg.textContent='Fehler: '+e});
 };
