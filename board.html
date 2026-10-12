@@ -65,6 +65,8 @@ button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
 .bdCard{background:#fff;border:1px solid var(--bd-border);border-radius:12px;padding:10px 11px;cursor:pointer;box-shadow:0 3px 10px rgba(14,74,139,.06);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .bdCard:hover{border-color:var(--bd-cyan)}
 .bdCard.dragging{opacity:.35}
+.bdCard.inactive{opacity:.55;background:#f1f4f7;filter:grayscale(1)}
+.bdCard.inactive:hover{opacity:.85}
 .bdT{font-weight:800;line-height:1.3;word-break:break-word}
 .bdMeta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
 .bdChip{font-size:12px;border-radius:999px;padding:2px 8px;background:#eef3f7;color:var(--bd-muted);font-weight:700;white-space:nowrap}
@@ -148,7 +150,7 @@ function fmtTs(t){if(!t)return'';var d=new Date(t);return isNaN(d)?'':d.toLocale
 function todayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function ymd(y,m,d){return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0')}
 function curList(){return S.lists.find(function(l){return l.id===S.listId})||null}
-function statuses(l){return(l&&Array.isArray(l.statuses))?l.statuses:[]}
+function statuses(l){var a=(l&&Array.isArray(l.statuses))?l.statuses.slice():[];var rank=function(s){return String(s.name).toLowerCase()==='nicht aktiv'?2:(s.type==='closed'?1:0)};return a.map(function(s,i){return[s,i]}).sort(function(x,y){return rank(x[0])-rank(y[0])||x[1]-y[1]}).map(function(x){return x[0]})}
 function isClosedStatus(l,s){var x=statuses(l).find(function(z){return z.name===s});return !!x&&(x.type==='closed'||x.type==='done')}
 function listOf(t){return S.lists.find(function(l){return l.id===t.list_id})}
 var PREFIX=['Pflegebedürftiger: ','Pflegeberatung: '];
@@ -213,7 +215,7 @@ function cardHtml(t){
   (t.tags||[]).forEach(function(g){m+='<span class="bdChip '+(g==='Duplikat?'?'dup':'tag')+'">'+esc(g)+'</span>'});
   var av=(t.assignees||[]).slice(0,3).map(function(u){return'<span class="bdAv" title="'+esc(userName(u))+'">'+esc(initials(u))+'</span>'}).join('');
   if(av)m+='<span class="bdAvs">'+av+'</span>';
-  return'<div class="bdCard" data-id="'+t.id+'"><div class="bdT">'+esc(shownTitle(t))+'</div>'+(m?'<div class="bdMeta">'+m+'</div>':'')+'</div>';
+  return'<div class="bdCard'+(String(t.status).toLowerCase()==='nicht aktiv'?' inactive':'')+'" data-id="'+t.id+'"><div class="bdT">'+esc(shownTitle(t))+'</div>'+(m?'<div class="bdMeta">'+m+'</div>':'')+'</div>';
 }
 function renderBoard(){
   var l=curList();var st=statuses(l);
