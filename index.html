@@ -91,7 +91,7 @@ button:disabled{opacity:.5;cursor:default}
   <div id="loginBox">
     <img src="logo.png" onerror="this.style.display='none'">
     <h1 style="margin-top:6px">CuraFact Portal</h1>
-    <p class="sub">Kundendaten, Notizen und ClickUp von unterwegs</p>
+    <p class="sub">Kundendaten, Notizen und Board von unterwegs</p>
     <div class="box" style="text-align:left">
       <label>Benutzername</label>
       <input type="text" id="loginUser" autocomplete="username" placeholder="z.B. onder">
@@ -106,7 +106,7 @@ button:disabled{opacity:.5;cursor:default}
     <div id="appHead">
       <div>
         <h1 style="margin:0">CuraFact Portal</h1>
-        <p class="sub" style="margin:2px 0 0">Kundendaten, Notizen und ClickUp</p>
+        <p class="sub" style="margin:2px 0 0">Kundendaten, Notizen und Board</p>
       </div>
       <div class="row" style="align-items:center">
         <span class="who">Angemeldet als <strong id="whoName"></strong></span>
@@ -553,14 +553,14 @@ function renderDetail(c){
     lastBerechnung = null;
   }
 
-  html += `<div class="box"><h2>ClickUp</h2>
-    <p class="mini">Verlauf direkt hier, oder den Task in ClickUp öffnen (Status, ggf. angehängtes Berechnungs-PDF).</p>
+  html += `<div class="box"><h2>Board</h2>
+    <p class="mini">Verlauf direkt hier, oder die Aufgabe im Board öffnen (Status, Checklisten, Anhänge).</p>
     <div class="row" id="clickupLinks" style="margin-top:6px"><span class="empty">Lade …</span></div>
     <div id="clickupActivity" style="margin-top:10px"></div>
   </div>`;
 
   html += `<div class="box"><h2>Notizen</h2>
-    <p class="mini">Wird zusätzlich als Kommentar an den passenden ClickUp-Task gehängt.</p>
+    <p class="mini">Wird zusätzlich als Kommentar an die passende Board-Aufgabe gehängt.</p>
     <div id="notesList"><div class="empty">Lade …</div></div>
     <label style="margin-top:10px">Neue Notiz</label>
     <div class="row">
@@ -705,14 +705,14 @@ async function loadClickupLinks(name, pflegeberatung){
   if(!el) return;
   const r = await callFn('portal-data', { token: session.token, action:'get_clickup_links', name, pflegeberatung: !!pflegeberatung });
   if(!r.ok){
-    el.innerHTML = `<span class="empty">${esc(r.message||'ClickUp-Verknüpfung konnte nicht geladen werden.')}</span>`;
+    el.innerHTML = `<span class="empty">${esc(r.message||'Board-Verknüpfung konnte nicht geladen werden.')}</span>`;
     if(activityEl) activityEl.innerHTML = '';
     return;
   }
   const links = [];
-  if(r.pflegekunden_url) links.push(`<a href="${esc(r.pflegekunden_url)}" target="_blank" rel="noopener"><button>Pflegekunden-Task öffnen ↗</button></a>`);
-  if(r.pflegeberatung_url) links.push(`<a href="${esc(r.pflegeberatung_url)}" target="_blank" rel="noopener"><button>Pflegeberatungs-Task öffnen ↗</button></a>`);
-  el.innerHTML = links.length ? links.join('') : '<span class="empty">Noch kein ClickUp-Task für diesen Kunden gefunden.</span>';
+  if(r.pflegekunden_url) links.push(`<a href="${esc(r.pflegekunden_url)}" target="_blank" rel="noopener"><button>Pflegekunden-Aufgabe öffnen ↗</button></a>`);
+  if(r.pflegeberatung_url) links.push(`<a href="${esc(r.pflegeberatung_url)}" target="_blank" rel="noopener"><button>Pflegeberatungs-Aufgabe öffnen ↗</button></a>`);
+  el.innerHTML = links.length ? links.join('') : '<span class="empty">Noch keine Board-Aufgabe für diesen Kunden gefunden.</span>';
   if(activityEl){
     const activity = (r.activity || []).slice().reverse();
     activityEl.innerHTML = activity.length

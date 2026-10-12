@@ -189,7 +189,7 @@ function renderBar(){
   h+='<label class="bdChk"><input type="checkbox" id="bdMine"'+(S.mine?' checked':'')+'> Meine</label>';
   if(S.view==='cal')h+='<label class="bdChk"><input type="checkbox" id="bdAll"'+(S.allLists?' checked':'')+'> alle Listen</label>';
   h+='<span class="bdSpacer"></span><button class="bdBtn primary" id="bdNew">+ Aufgabe</button><button class="bdBtn" id="bdTrash" title="Papierkorb">Papierkorb</button>';
-  if(H().isAdmin)h+='<button class="bdBtn" id="bdImport">Aus ClickUp übernehmen</button>';
+  if(H().isAdmin)h+='<button class="bdBtn" id="bdDupes" title="Doppelte Kunden-Aufgaben zusammenführen">Duplikate</button><button class="bdBtn" id="bdImport">Aus ClickUp übernehmen</button>';
   h+='<button class="bdBtn" id="bdReload" title="Neu laden">↻</button>';
   $('#bdBar').innerHTML=h;
 }
@@ -524,6 +524,34 @@ async function runImport(){
   };
 }
 
+/* ---------- Duplikate zusammenführen (nur Admin) ---------- */
+async function runDupes(){
+  var host=$('#bdModalHost');S.modalOpen=true;
+  var draw=function(body){host.innerHTML='<div class="bdModalBg"><div class="bdModal small"><h3>Duplikate zusammenführen</h3>'+body+'</div></div>'};
+  var close=async function(reload){host.onclick=null;host.innerHTML='';S.modalOpen=false;if(reload)await load(true);render()};
+  draw('<p>Prüfe …</p>');
+  var r=await call('board_dupes_merge',{dry:true});
+  if(!r.ok){draw('<p style="color:#b91c1c">'+esc(r.message||'Fehler')+'</p><div class="bdRow" style="justify-content:flex-end"><button class="bdBtn" id="dpClose">Schließen</button></div>');host.onclick=function(e){if(e.target.id==='dpClose')close(false)};return}
+  if(!r.duplicates){draw('<p>Keine doppelten Aufgaben gefunden.</p><div class="bdRow" style="justify-content:flex-end"><button class="bdBtn" id="dpClose">Schließen</button></div>');host.onclick=function(e){if(e.target.id==='dpClose')close(false)};return}
+  draw('<p><b>'+r.duplicates+'</b> doppelte Aufgaben in <b>'+r.groups+'</b> Gruppen (gleicher Kundenname).</p><p class="bdLog">Beispiele: '+esc((r.examples||[]).join(', '))+'</p><p>Die älteste Aufgabe bleibt. Checklisten-Einträge, Kommentare und Anhänge der anderen wandern dorthin, die Dublette landet im Papierkorb (wiederherstellbar). Als Status gilt der der zuletzt bearbeiteten Aufgabe.</p><div class="bdRow" style="justify-content:flex-end"><button class="bdBtn" id="dpClose">Abbrechen</button><button class="bdBtn primary" id="dpGo">Zusammenführen</button></div>');
+  var running=false;
+  host.onclick=async function(e){
+    if(e.target.id==='dpClose'&&!running){close(false);return}
+    if(e.target.id==='dpDone'){close(true);return}
+    if(e.target.id==='dpGo'){
+      running=true;var done=0,guard=0,total=r.groups;
+      while(guard++<200){
+        draw('<p>Führe zusammen … '+done+' von '+total+' Gruppen</p><div class="bdProg"><i style="width:'+Math.round(done*100/Math.max(1,total))+'%"></i></div>');
+        var m=await call('board_dupes_merge',{dry:false,limit:8});
+        if(!m.ok){draw('<p style="color:#b91c1c">'+esc(m.message||'Fehler')+' (nochmal starten setzt fort)</p><div class="bdRow" style="justify-content:flex-end"><button class="bdBtn" id="dpDone">Schließen</button></div>');running=false;return}
+        done+=m.merged;if(!m.remaining)break;
+      }
+      running=false;
+      draw('<p><b>Fertig.</b> '+done+' Gruppen zusammengeführt.</p><div class="bdRow" style="justify-content:flex-end"><button class="bdBtn primary" id="dpDone">Schließen</button></div>');
+    }
+  };
+}
+
 /* ---------- Ereignisse ---------- */
 function bindEvents(){
   var root=S.root;
@@ -543,6 +571,7 @@ function bindEvents(){
     if(el.id==='bdReload'){refresh(true);return}
     if(el.id==='bdTrash'){showTrash();return}
     if(el.id==='bdImport'){runImport();return}
+    if(el.id==='bdDupes'){runDupes();return}
     if(el.id==='bdNew'){var t=await dlg({title:'Neue Aufgabe',input:'',ok:'Anlegen'});if(t)createTask(t,null);return}
     if((x=el.closest('[data-add]'))){
       var colEl=x.closest('.bdCol'),qh=$('.bdQuickHost',colEl);if(qh.firstChild)return;
@@ -572,7 +601,7 @@ var BD={
     S.root=rootEl;shell();bindEvents();
     var v=store('view');if(v==='list'||v==='cal'||v==='board')S.view=v;
     $('#bdBody').innerHTML='<div class="bdEmpty">Lade Board …</div>';
-    if(await load(true))render();
+    if(await load(true)){render();try{var tid=new URLSearchParams(location.search).get('task');if(tid)openTask(tid)}catch(e){}}
     clearInterval(S.timer);
     S.timer=setInterval(function(){if(!document.hidden&&S.root&&S.root.offsetParent!==null)refresh(false)},60000);
     document.addEventListener('visibilitychange',function(){if(!document.hidden&&S.root&&S.root.offsetParent!==null)refresh(false)});
