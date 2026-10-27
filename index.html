@@ -1,5 +1,5 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=9"></head><body>
+<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=10"></head><body>
 
 <div id="loginBox" class="loginWrap hidden"><div class="cfPanel">
   <img src="logo.png" alt="Curafact">
@@ -15,9 +15,9 @@
   <aside class="cfSide"><div id="sideNav"></div><div class="who">Angemeldet als <strong id="whoName"></strong><br><button id="logoutBtn" style="margin-top:8px;width:100%">Abmelden</button></div></aside>
   <aside class="cfRail">
     <div class="railHead"><h2>Kunden</h2><span class="cfCount" id="custCount">0</span></div>
+    <button id="faNewBtn" class="primaryBtn">+ Neuer Kunde (Link / QR)</button>
     <input class="cfSearch" id="custSearch" placeholder="Kunde suchen…">
     <div class="cfList" id="custList"><div class="empty">Lade Kunden …</div></div>
-    <button id="faNewBtn">Neuer Kunde per Link / QR</button>
   </aside>
   <main class="cfMain" id="detail"><div class="empty">Bitte links einen Kunden auswählen.</div></main>
 </div>
@@ -29,7 +29,7 @@
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="kfc.js"></script><script src="cf-calc.js?v=9"></script><script src="cf-form.js?v=9"></script><script src="cf-api.js?v=9"></script>
+<script src="kfc.js"></script><script src="cf-calc.js?v=10"></script><script src="cf-form.js?v=10"></script><script src="cf-api.js?v=10"></script>
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
