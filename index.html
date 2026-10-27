@@ -1,5 +1,5 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=8"></head><body>
+<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=9"></head><body>
 
 <div id="loginBox" class="loginWrap hidden"><div class="cfPanel">
   <img src="logo.png" alt="Curafact">
@@ -29,7 +29,7 @@
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="kfc.js"></script><script src="cf-calc.js?v=8"></script><script src="cf-form.js?v=8"></script><script src="cf-api.js?v=8"></script>
+<script src="kfc.js"></script><script src="cf-calc.js?v=9"></script><script src="cf-form.js?v=9"></script><script src="cf-api.js?v=9"></script>
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
@@ -189,9 +189,15 @@ function prefillPayload(d){
     person_name:d.person_name||'',person_anschrift:d.person_anschrift||'',person_geburtsdatum:toIso(d.person_geburtsdatum),person_verhaeltnis:d.person_verhaeltnis||'',
     pflegegrade:(Array.isArray(d.pflegegrade)?d.pflegegrade:[]),entlastung_jahre:d.entlastung_jahre||{},verhinderungspflege:Array.isArray(d.verhinderungspflege)?d.verhinderungspflege:[],nachbarschaftshilfen:helfer(d)};
 }
+function faMeldung(t){var e=$('faMsg');if(!e){e=document.createElement('div');e.id='faMsg';e.className='note noteBad';$('faNewBtn').parentNode.insertBefore(e,$('faNewBtn'))}e.textContent=t;e.classList.toggle('hidden',!t)}
 async function startFernaufnahme(label,customer){
-  var r=await CFAPI.call('intake_create',{label:label,customer:customer||null});
-  if(!r||!r.ok){alert((r&&r.message)||'Fernaufnahme konnte nicht gestartet werden.');return}
+  faMeldung('');
+  var r;
+  try{r=await CFAPI.call('intake_create',{label:label,customer:customer||null})}catch(e){faMeldung('Fernaufnahme: Verbindung fehlgeschlagen ('+e+').');return}
+  if(!r||!r.ok){faMeldung('Fernaufnahme konnte nicht gestartet werden: '+((r&&(r.message||('Status '+r.http_status)))||'keine Antwort')+'.');return}
+  try{ startFernaufnahmeZeigen(label,customer,r) }catch(e){faMeldung('Fernaufnahme: Anzeige fehlgeschlagen ('+e+').')}
+}
+function startFernaufnahmeZeigen(label,customer,r){
   var base=location.href.replace(/[?#].*$/,'').replace(/[^\/]*$/,'');
   var url=base+'intake.html?s='+encodeURIComponent(r.session)+'&l='+encodeURIComponent(label||'Aufnahme');
   $('mTitle').textContent=customer?'Fernaufnahme – Änderungen':'Fernaufnahme – neuer Kunde';
