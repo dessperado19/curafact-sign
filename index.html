@@ -1,5 +1,5 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=11"></head><body>
+<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=12"></head><body>
 
 <div id="loginBox" class="loginWrap hidden"><div class="cfPanel">
   <img src="logo.png" alt="Curafact">
@@ -28,7 +28,7 @@
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="kfc.js"></script><script src="cf-calc.js?v=11"></script><script src="cf-form.js?v=11"></script><script src="cf-api.js?v=11"></script>
+<script src="kfc.js"></script><script src="cf-calc.js?v=12"></script><script src="cf-form.js?v=12"></script><script src="cf-api.js?v=12"></script>
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
@@ -201,7 +201,7 @@ function startFernaufnahmeZeigen(label,customer,r){
   var base=location.href.replace(/[?#].*$/,'').replace(/[^\/]*$/,'');
   var url=base+'intake.html?s='+encodeURIComponent(r.session)+'&l='+encodeURIComponent(label||'Aufnahme');
   $('mTitle').textContent=customer?'Fernaufnahme – Änderungen':'Fernaufnahme – neuer Kunde';
-  $('mLabel').textContent=label?('Für: '+label+' – Angaben werden in Studio diesem Kunden zugeordnet.'):'Link/QR-Code an den Kunden schicken. Die Angaben erscheinen danach in Studio.';
+  $('mLabel').textContent=(label&&label!=='Neuer Kunde')?('Für: '+label+' – Angaben werden in Studio diesem Kunden zugeordnet.'):'Link/QR-Code an den Kunden schicken. Die Angaben erscheinen danach in Studio.';
   $('mUrl').textContent=url;$('mQr').innerHTML='';
   try{new QRCode($('mQr'),{text:url,width:200,height:200,correctLevel:QRCode.CorrectLevel.M})}catch(e){}
   $('mOpen').onclick=function(){window.open(url,'_blank','noopener')};
@@ -210,7 +210,19 @@ function startFernaufnahmeZeigen(label,customer,r){
   $('modal').classList.remove('hidden');
 }
 $('mClose').onclick=function(){$('modal').classList.add('hidden')};
-$('faNewBtn').onclick=function(){startFernaufnahme('',null)};
+$('faNewBtn').onclick=neuerKunde;
+async function neuerKunde(){
+  cur=null;editMode=false;renderListe();faMeldung('');
+  var r;try{r=await CFAPI.call('intake_create',{label:'Neuer Kunde',customer:null})}catch(e){r=null}
+  if(!r||!r.ok){$('detail').innerHTML='<div class="note noteBad">Aufnahme konnte nicht gestartet werden: '+esc((r&&(r.message||('Status '+r.http_status)))||'keine Antwort')+'</div>';return}
+  var base=location.href.replace(/[?#].*$/,'').replace(/[^\/]*$/,'');
+  var q='intake.html?s='+encodeURIComponent(r.session)+'&l='+encodeURIComponent('Neuer Kunde');
+  $('detail').innerHTML='<div class="cfTop"><div><h1>Neuer Kunde – Aufnahme</h1><p>Hier direkt ausfüllen und absenden. Die Angaben erscheinen danach in Studio unter „Fernaufnahme“ und werden dort als Kunde angelegt. Soll der Kunde oder ein Angehöriger es selbst ausfüllen, nutze die Fernaufnahme per Link / QR.</p></div>'+
+    '<div class="actions"><button class="primaryBtn" id="btnNkFern">Fernaufnahme per Link / QR</button><button id="btnNkClose">Schließen</button></div></div>'+
+    '<iframe id="nkFrame" title="Aufnahme" src="'+esc(q+'&embed=1')+'" style="width:100%;height:calc(100vh - 170px);min-height:560px;border:1px solid var(--line);border-radius:18px;background:#eef4f9"></iframe>';
+  $('btnNkFern').onclick=function(){startFernaufnahmeZeigen('Neuer Kunde',null,r)};
+  $('btnNkClose').onclick=function(){$('detail').innerHTML='<div class="empty">Bitte links einen Kunden auswählen.</div>'};
+}
 
 /* ---------- Start ---------- */
 (function(){
