@@ -1,5 +1,5 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=12"></head><body>
+<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=13"></head><body>
 
 <div id="loginBox" class="loginWrap hidden"><div class="cfPanel">
   <img src="logo.png" alt="Curafact">
@@ -19,6 +19,7 @@
     <div class="cfList" id="custList"><div class="empty">Lade Kunden …</div></div>
   </aside>
   <main class="cfMain" id="detail"><div class="empty">Bitte links einen Kunden auswählen.</div></main>
+  <main class="cfMain hidden" id="viewRechner" style="max-width:1100px;flex:1"></main>
 </div>
 
 <div id="modal" class="modalOverlay hidden"><div class="modalBox">
@@ -28,12 +29,20 @@
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="kfc.js"></script><script src="cf-calc.js?v=12"></script><script src="cf-form.js?v=12"></script><script src="cf-api.js?v=12"></script>
+<script src="kfc.js"></script><script src="cf-calc.js?v=13"></script><script src="cf-form.js?v=13"></script><script src="cf-api.js?v=13"></script><script src="cf-rechner.js?v=13"></script>
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
 var customers=[],cur=null,editMode=false,abzugAnzeige=null;
 document.getElementById('sideNav').innerHTML=cfSide('kunden');
+var rechnerGemountet=false;
+function zeigeAnsicht(v){
+  var r=(v==='rechner');
+  document.querySelector('.cfRail').classList.toggle('hidden',r);$('detail').classList.toggle('hidden',r);$('viewRechner').classList.toggle('hidden',!r);
+  document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.classList.toggle('active',a.getAttribute('href')===(r?'rechner.html':'index.html'))});
+  if(r&&!rechnerGemountet){rechnerGemountet=true;CFRechner.mount($('viewRechner'))}
+}
+document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();zeigeAnsicht(a.getAttribute('href')==='rechner.html'?'rechner':'kunden')})});
 (function(){var nav=document.querySelector('#sideNav .cfNav'),b=document.createElement('button');b.id='faNewBtn';b.type='button';b.textContent='+ Neuer Kunde (Link / QR)';nav.insertBefore(b,nav.children[1]||null)})();
 
 /* ---------- Anmeldung ---------- */
@@ -119,14 +128,14 @@ function renderDetail(){
 }
 function editForm(d){
   var pg=CFForm.pflegegradHtml(d);
-  return '<div class="cfPanel kf" id="kfRoot"><div class="wizardSteps"><span data-jump="e1">1 Person</span><span data-jump="e2">2 Pflegegrad</span><span data-jump="e3">3 Pflegeperson</span><span data-jump="e5">4 Entlastung</span><span data-jump="e6">5 Verhinderungspflege</span><span data-jump="e9">6 Berechnung</span></div>'+
+  return '<form class="cfPanel kf" id="kfRoot" onsubmit="return false"><div class="wizardSteps"><span data-jump="e1">1 Person</span><span data-jump="e2">2 Pflegegrad</span><span data-jump="e3">3 Pflegeperson</span><span data-jump="e5">4 Entlastung</span><span data-jump="e6">5 Verhinderungspflege</span><span data-jump="e9">6 Berechnung</span></div>'+
     '<h3 class="kfH" id="e1">1. Pflegebedürftige Person</h3>'+CFForm.personHtml(d,{nameFix:true})+
     '<h3 class="kfH" id="e2">2. Pflegegrad</h3>'+pg.html+
     '<h3 class="kfH" id="e3">3. Pflegeperson <small>(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)</small></h3>'+CFForm.pflegepersonHtml(d)+
     '<h3 class="kfH" id="e5">4. Entlastungsbetrag (§ 45b SGB XI) <small>– je Jahr</small></h3>'+CFForm.entHtml(d,pg.form)+
     '<h3 class="kfH" id="e6">5. Verhinderungspflege / Kurzzeitpflege <small>– je Jahr</small></h3>'+CFForm.vpHtml(d)+
     '<h3 class="kfH" id="e9">6. Berechnung</h3>'+CFForm.abzugHtml(d)+
-    '<div class="actions" style="margin-top:18px"><button class="primaryBtn" id="btnSave2">Speichern</button><button id="btnCancel2">Abbrechen</button></div></div>';
+    '<div class="actions" style="margin-top:18px"><button type="button" class="primaryBtn" id="btnSave2">Speichern</button><button type="button" id="btnCancel2">Abbrechen</button></div></form>';
 }
 function zeigeAuswertung(){
   var d=cur.data,inp=$('abzIn');if(!inp)return;
@@ -212,7 +221,7 @@ function startFernaufnahmeZeigen(label,customer,r){
 $('mClose').onclick=function(){$('modal').classList.add('hidden')};
 $('faNewBtn').onclick=neuerKunde;
 async function neuerKunde(){
-  cur=null;editMode=false;renderListe();faMeldung('');
+  zeigeAnsicht('kunden');cur=null;editMode=false;renderListe();faMeldung('');
   var r;try{r=await CFAPI.call('intake_create',{label:'Neuer Kunde',customer:null})}catch(e){r=null}
   if(!r||!r.ok){$('detail').innerHTML='<div class="note noteBad">Aufnahme konnte nicht gestartet werden: '+esc((r&&(r.message||('Status '+r.http_status)))||'keine Antwort')+'</div>';return}
   var base=location.href.replace(/[?#].*$/,'').replace(/[^\/]*$/,'');

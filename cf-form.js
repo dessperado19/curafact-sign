@@ -91,9 +91,8 @@ var CFForm=(function(){
   }
 
   /* ----- Bedienung ----- */
-  var dirty={};
   function bind(root,onChange){
-    dirty={pg:false};
+    var dirty=root._cfDirty={pg:false};
     var ch=function(){if(onChange)onChange()};
     root.querySelectorAll('.kfPgBtn').forEach(function(b){b.onclick=function(){root.querySelectorAll('.kfPgBtn').forEach(function(x){x.classList.toggle('on',x===b)});root.querySelector('#kf_pg_aktuell').value=b.dataset.st;dirty.pg=true;ch()}});
     zeilenEntLesen(root);
@@ -120,7 +119,7 @@ var CFForm=(function(){
       var e=root.querySelector('#f_'+k);if(!e||e.disabled)return;var v=e.value||'';if(v!==''||k in data)data[k]=v;
     });
     if(root.querySelector('#kf_pg_aktuell')){
-      var pgDirty=dirty.pg||!(Array.isArray(data.pflegegrade)&&data.pflegegrade.length)||root.dataset.pgDirty==='1';
+      var pgDirty=(root._cfDirty&&root._cfDirty.pg)||!(Array.isArray(data.pflegegrade)&&data.pflegegrade.length)||root.dataset.pgDirty==='1';
       if(pgDirty){
         var fr=[].slice.call(root.querySelectorAll('.kfPgF')).map(function(z){return {stufe:z.querySelector('.kfPgFSt').value,von:z.querySelector('.kfPgFVon').value,bis:z.querySelector('.kfPgFBis').value}});
         var ent={},entJ={};

@@ -166,3 +166,5 @@ input.dt.ungueltig{border-bottom-color:#c0392b;background:#fdecec}
 .calcTable.detailed td:first-child,.calcTable.detailed th:first-child{white-space:nowrap}
 
 .embed .inBar,.embed .inHead,.embed .cffoot,.embed #pageTitle{display:none}.embed .inWrap{padding-top:10px}
+
+.cfApp>.cfMain.hidden{display:none!important}
