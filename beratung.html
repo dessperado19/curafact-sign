@@ -226,15 +226,15 @@ button{font-family:inherit;border-radius:12px}
 </div>
 
 <script>
-var SUBMIT_URL='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1/submit';
-var PORTAL_DATA_URL='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1/portal-data';
+var SUBMIT_URL='https://nhxofktmsawvjrzngzft.supabase.co/functions/v1/submit';
+var PORTAL_DATA_URL='https://nhxofktmsawvjrzngzft.supabase.co/functions/v1/portal-data';
 var params=new URLSearchParams(location.search);
 var SESSION=params.get('s')||'';
 var LABEL=params.get('l')||'';
 /* Zugang nur für Mitarbeiter: Sitzungen aus Studio/Portal sind als „nur Mitarbeiter“ markiert. Die Seite verlangt dann die
    Portal-Anmeldung (Benutzername + Code der Authenticator-App); Kunden bekommen höchstens den Unterschrift-Link. */
-var ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcXVtbHhqbWdxcm13bHhxd3JlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg0NTg0NDcsImV4cCI6MjA3NDAzNDQ0N30.sG8vMck4tSDWwsTay_tUujlRDruFjscrrMOhmlkj8Ws';
-var FN_BASE='https://vdqumlxjmgqrmwlxqwre.supabase.co/functions/v1';
+var ANON_KEY='sb_publishable_lqh2IU2DmT0NRQssFY3R3w_gnKvMRbK';
+var FN_BASE='https://nhxofktmsawvjrzngzft.supabase.co/functions/v1';
 function FN_HEADERS(){return {'Content-Type':'application/json','Authorization':'Bearer '+ANON_KEY,'apikey':ANON_KEY}}
 var KEY=params.get('k')||'';   /* Zugangsschlüssel aus Studio/Portal: gilt ohne Code */
 var SESSION_KEY='curafact_portal_session', IDLE_MS=30*60*1000;
