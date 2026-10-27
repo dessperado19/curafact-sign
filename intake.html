@@ -1,6 +1,6 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curafact – Aufnahme</title><link rel="stylesheet" href="cf.css?v=15"></head><body style="background:#eef4f9">
+<title>Curafact – Aufnahme</title><link rel="stylesheet" href="cf.css?v=16"></head><body style="background:#eef4f9">
 <div class="inBar"></div><div class="inHead"><img src="logo.png" alt="Curafact"></div>
 <div class="inWrap">
   <h1 id="pageTitle">Aufnahme</h1>
@@ -56,7 +56,7 @@
 </div>
 <div class="cffoot">Curafact · Persönlich. Fürsorglich. An Ihrer Seite.</div>
 
-<script src="kfc.js"></script><script src="cf-calc.js?v=15"></script><script src="cf-form.js?v=15"></script><script src="cf-sig.js?v=15"></script>
+<script src="kfc.js"></script><script src="cf-calc.js?v=16"></script><script src="cf-form.js?v=16"></script><script src="cf-sig.js?v=16"></script>
 <script>
 var API='https://nhxofktmsawvjrzngzft.supabase.co/functions/v1',KEY='sb_publishable_lqh2IU2DmT0NRQssFY3R3w_gnKvMRbK';
 if(/[?&]embed=1/.test(location.search))document.documentElement.classList.add('embed');
@@ -94,7 +94,7 @@ function addHelperSlot(pre){
     '<div class="sigArea" style="margin-top:12px"><label style="font-size:12px;font-weight:700;color:#4f6a85">Unterschrift</label>'+
     '<div class="sigFileRow" style="margin-top:6px"><button type="button" id="sigfilebtn_h'+n+'">Datei wählen</button><input type="file" accept="image/*" id="sigfile_h'+n+'" class="hidden"><span class="fileStatusStyle" id="sigfilestatus_h'+n+'">Keine Datei ausgewählt</span></div>'+
     '<img id="sigpreview_h'+n+'" class="sigPreviewImg hidden"><canvas id="sig_h'+n+'"></canvas><div class="sigbar"><button type="button" id="sigclear_h'+n+'">Löschen</button></div></div>'+
-    '<div style="margin-top:12px"><button type="button" class="shareSlotBtn">Link an diese Person senden (mit meinen Angaben vorausgefüllt)</button></div><div class="linkResult" id="linkresult_h'+n+'"></div>';
+    '<div style="margin-top:12px"><button type="button" class="shareSlotBtn">Link an diese Person senden (mit meinen Angaben vorausgefüllt)</button></div><div class="linkResult" id="linkresult_h'+n+'"></div><div class="note hidden helperOk" style="margin-top:8px"></div>';
   $('helperSlots').appendChild(slot);
   helperSigs[n]=setupSigInput('h'+n);
   if(pre.sig_dataurl)helperSigs[n].setDataUrl(pre.sig_dataurl);
@@ -107,8 +107,32 @@ function addHelperSlot(pre){
     box.innerHTML='<div class="linkbox">'+esc(url)+'</div><div class="actions"><button type="button" class="primaryBtn shareBtn">Teilen</button><button type="button" class="copyBtn">Kopieren</button></div>';
     box.querySelector('.shareBtn').onclick=function(e){shareOrCopy(url,e.target)};
     box.querySelector('.copyBtn').onclick=function(e){if(navigator.clipboard)navigator.clipboard.writeText(url);e.target.textContent='Kopiert!';setTimeout(function(){e.target.textContent='Kopieren'},1500)};
+    starteHelferPolling();
   };
 }
+
+/* ---------- Angaben der Nachbarschaftshilfen live übernehmen ---------- */
+var helperStand={},pollTimer=null;
+async function pruefeHelfer(){
+  if(document.hidden||!SESSION)return;
+  try{
+    var res=await fetch(API+'/studio-api',{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({action:'intake_session_get',session:SESSION,k:HKEY,helpers:true})});
+    var r=await res.json();if(!r.ok||!r.helpers)return;
+    r.helpers.forEach(function(h){
+      var n=Math.max(1,parseInt(h.index)||1);
+      if(helperStand[n]===h.submitted_at)return;
+      while(helperCount<n)addHelperSlot();
+      var slot=document.querySelector('.helperSlot[data-n="'+n+'"]');if(!slot)return;
+      helperStand[n]=h.submitted_at;
+      var d=h.data||{};
+      function setze(id,v){var e=$(id);if(e&&v!==undefined&&v!==null&&String(v)!=='')e.value=v}
+      setze('h'+n+'_name',d.hilfe_name);setze('h'+n+'_anschrift',d.hilfe_anschrift);setze('h'+n+'_geburtsdatum',toDe(d.hilfe_geburtsdatum));setze('h'+n+'_telefon',d.hilfe_telefon);
+      if(h.dataurl&&helperSigs[n])helperSigs[n].setDataUrl(h.dataurl);
+      var ok=slot.querySelector('.helperOk');ok.textContent='✓ Von der Person selbst ausgefüllt und unterschrieben'+(h.submitted_at?(' ('+new Date(h.submitted_at).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr)'):'')+'.';ok.classList.remove('hidden');
+    });
+  }catch(e){}
+}
+function starteHelferPolling(){if(!pollTimer){pollTimer=setInterval(pruefeHelfer,6000)}pruefeHelfer()}
 
 /* ---------- Absenden ---------- */
 async function senden(body){
@@ -125,7 +149,7 @@ function sammle(){
   data.nachbarschaftshilfen=[];
   Object.keys(helperSigs).forEach(function(n){
     var nm=$('h'+n+'_name');if(!nm)return;
-    data.nachbarschaftshilfen.push({hilfe_name:nm.value,hilfe_anschrift:$('h'+n+'_anschrift').value,hilfe_geburtsdatum:$('h'+n+'_geburtsdatum').value,hilfe_telefon:$('h'+n+'_telefon').value,hilfe_sig_dataurl:helperSigs[n].getDataUrl()});
+    data.nachbarschaftshilfen.push({index:+n,hilfe_name:nm.value,hilfe_anschrift:$('h'+n+'_anschrift').value,hilfe_geburtsdatum:$('h'+n+'_geburtsdatum').value,hilfe_telefon:$('h'+n+'_telefon').value,hilfe_sig_dataurl:helperSigs[n].getDataUrl()});
   });
   data.nachbarschaftshilfen=data.nachbarschaftshilfen.filter(function(h){return h.hilfe_name.trim()||h.hilfe_anschrift.trim()||h.hilfe_sig_dataurl});
   ['pflege_sig_dataurl'].forEach(function(k){delete data[k]});
@@ -206,6 +230,7 @@ function startHelper(){
   if(!SESSION){$('noSession').classList.remove('hidden');return}
   if(ROLE==='helper'){startHelper();return}
   startMain();
+  starteHelferPolling();
   try{
     var res=await fetch(API+'/studio-api',{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({action:'intake_session_get',session:SESSION,k:HKEY})});
     var r=await res.json();
