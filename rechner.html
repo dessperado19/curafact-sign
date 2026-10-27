@@ -1,0 +1,54 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Curafact – Rechner</title><link rel="stylesheet" href="cf.css?v=8"></head><body>
+<div class="cfApp">
+  <aside class="cfSide" id="side"></aside>
+  <main class="cfMain" style="max-width:1100px">
+    <div class="cfTop"><div><h1>Rechner</h1><p>Eigenständig rechnen – mit Abzug, ohne Kundenakte. Es wird nichts gespeichert; alle Eingaben bleiben in diesem Browser-Fenster.</p></div>
+      <div class="actions"><button type="button" id="btnReset">Alles zurücksetzen</button></div></div>
+    <div class="cfPanel kf" id="kfRoot">
+      <div class="wizardSteps"><span data-jump="s1">1 Person</span><span data-jump="s2">2 Pflegegrad</span><span data-jump="s5">3 Entlastung</span><span data-jump="s6">4 Verhinderungspflege</span><span data-jump="s9">5 Berechnung</span></div>
+      <h3 class="kfH" id="s1">1. Pflegebedürftige Person <small>– nur der Name wird für den Ausdruck gebraucht</small></h3><div id="boxPerson"></div>
+      <h3 class="kfH" id="s2">2. Pflegegrad</h3><div id="boxPg"></div>
+      <h3 class="kfH" id="s5">3. Entlastungsbetrag (§ 45b SGB XI) <small>– je Jahr</small></h3><div id="boxEnt"></div>
+      <h3 class="kfH" id="s6">4. Verhinderungspflege / Kurzzeitpflege <small>– je Jahr</small></h3><div id="boxVp"></div>
+      <h3 class="kfH" id="s9">5. Berechnung</h3>
+      <div class="actions" style="gap:22px;align-items:center"><div id="boxAbz"></div></div>
+      <div id="warn"></div>
+    </div>
+    <div class="cfPanel"><div class="cfHead"><h2>Auswertung mit Abzug</h2><div class="actions"><button type="button" class="primaryBtn" id="btnPrintCalc">Berechnung drucken / als PDF</button></div></div><div id="resAus"></div></div>
+    <div class="cfPanel"><div class="cfHead"><h2>Nachweis</h2><div class="actions"><label style="display:flex;align-items:center;font-size:13.5px"><input type="checkbox" id="optRueck">Rückwirkend</label><label style="display:flex;align-items:center;font-size:13.5px"><input type="checkbox" id="optPar" checked>Rechtsgrundlagen (§)</label><button type="button" id="btnPrintNach">Nachweis drucken / als PDF</button></div></div><div id="resNach"></div></div>
+  </main>
+</div>
+<script src="kfc.js"></script><script src="cf-calc.js?v=8"></script><script src="cf-form.js?v=8"></script><script src="cf-api.js?v=8"></script>
+<script>
+document.getElementById('side').innerHTML=cfSide('rechner');
+var root=document.getElementById('kfRoot'),timer=null;
+function $(id){return document.getElementById(id)}
+function aufbauen(){
+  var d={abzug_prozent:'40'};
+  $('boxPerson').innerHTML='<div class="kfGrid">'+
+    '<div class="kfF" style="grid-column:span 6"><label for="f_pflege_name">Name, Vorname</label><input id="f_pflege_name" value=""></div>'+
+    '<div class="kfF" style="grid-column:span 6"><label for="f_pflege_kasse">Pflegekasse (optional)</label><input id="f_pflege_kasse" value=""></div>'+
+    '<div class="kfF" style="grid-column:span 8"><label for="f_pflege_anschrift">Anschrift (optional)</label><input id="f_pflege_anschrift" value=""></div>'+
+    '<div class="kfF" style="grid-column:span 4"><label for="f_pflege_kvnr">Versichertennummer (optional)</label><input id="f_pflege_kvnr" value=""></div></div>';
+  var pg=CFForm.pflegegradHtml(d);
+  $('boxPg').innerHTML=pg.html;$('boxEnt').innerHTML=CFForm.entHtml(d,pg.form);$('boxVp').innerHTML=CFForm.vpHtml(d);$('boxAbz').innerHTML=CFForm.abzugHtml(d);
+  CFForm.bind(root,geaendert);
+  root.querySelectorAll('.wizardSteps [data-jump]').forEach(function(s){s.onclick=function(){var t=$(s.dataset.jump);if(t)t.scrollIntoView({behavior:'smooth',block:'start'})}});
+  rechnen();
+}
+function daten(){return CFForm.collect(root,{})}
+function geaendert(){clearTimeout(timer);timer=setTimeout(rechnen,150)}
+function rechnen(){
+  var d=daten(),r=CFC.berechne(d,d.abzug_prozent);
+  $('resAus').innerHTML=CFC.auswertungHtml(r);
+  $('resNach').innerHTML=CFC.nachweisHtml(d,$('optRueck').checked,$('optPar').checked);
+  var w=CFC.pruefePhasen(d.pflegegrade);
+  $('warn').innerHTML=w.length?'<div class="note noteBad">'+w.map(function(x){return CFC.esc(x.text)}).join('<br>')+'</div>':'';
+}
+$('optRueck').onchange=rechnen;$('optPar').onchange=rechnen;
+$('btnPrintCalc').onclick=function(){rechnen();CFC.drucken($('resAus').innerHTML,'Curafact Berechnung')};
+$('btnPrintNach').onclick=function(){rechnen();CFC.drucken($('resNach').innerHTML,'Curafact Nachweis')};
+$('btnReset').onclick=function(){if(confirm('Alle Eingaben löschen?'))aufbauen()};
+aufbauen();
+</script></body></html>
