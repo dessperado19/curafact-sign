@@ -59,7 +59,7 @@ button:disabled{opacity:.5;cursor:default}
 .kf h3.kfH:first-child{margin-top:0}
 .kf h3.kfH:before{content:'';width:8px;height:20px;background:var(--teal);border-radius:3px;flex:none}
 .kf h3.kfH small{font-weight:500;font-size:12px;color:var(--muted)}
-.kfGrid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+.kfGrid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;align-items:end}
 .kfF{display:flex;flex-direction:column;gap:4px;min-width:0}
 .kfF label{font-size:12px;color:#4f6a85;font-weight:700}
 input[type=text],input[type=tel],input[type=date],input[type=number],input:not([type]),select,textarea{font-family:inherit;color:var(--text)}

@@ -18,8 +18,8 @@ var CFForm=(function(){
     var f=K.phasenZuForm(Array.isArray(data.pflegegrade)?data.pflegegrade:[],heute());
     var a=f.aktuell||{stufe:'',von:'',bis:''},st=String(a.stufe||''),seit=data.pflegegrad_seit_angabe||a.von||'';
     var h='<div class="kfF" style="grid-column:span 12"><label>Aktueller Pflegegrad (bitte wählen)</label><div class="kfPgBtns">'+[1,2,3,4,5].map(function(n){return '<button type="button" class="kfPgBtn'+(String(n)===st?' on':'')+'" data-st="'+n+'">PG '+n+'</button>'}).join('')+'<input type="hidden" id="kf_pg_aktuell" value="'+esc(st)+'"></div></div>';
-    h+=feld('kf_pg_seit','Aktueller Pflegegrad gilt seit (TT.MM.JJJJ, Monat und Jahr genügen)',seit,6,'placeholder="z. B. 01.05.2024 oder 05.2024"');
-    h+=feld('kf_pg_bis','bis (nur ausfüllen, wenn beendet)',a.bis||'',6,'placeholder="leer = läuft noch"');
+    h+=feld('kf_pg_seit','Gilt seit (TT.MM.JJJJ, Monat und Jahr genügen)',seit,6,'placeholder="z. B. 01.05.2024 oder 05.2024"');
+    h+=feld('kf_pg_bis','Bis (nur ausfüllen, wenn beendet)',a.bis||'',6,'placeholder="leer = läuft noch"');
     h+='<div class="kfF" style="grid-column:span 12"><label>Hatte die Person früher einen anderen Pflegegrad?</label><div id="kf_pg_frueher">'+f.frueher.map(frueherZeile).join('')+'</div><div class="actions"><button type="button" id="kf_pg_add">+ früheren Pflegegrad eintragen</button></div><p class="mini">Gerechnet wird höchstens ab 01.01.2022 (Verjährung). Ein früherer Beginn wird beim Speichern darauf gekürzt.</p></div>';
     return {html:h,form:f};
   }
