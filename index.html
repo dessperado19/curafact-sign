@@ -73,7 +73,7 @@ function renderListe(){
   var q=$('custSearch').value.trim().toLowerCase(),list=customers.filter(function(c){return !q||String(c.name||'').toLowerCase().indexOf(q)>=0});
   $('custCount').textContent=list.length;
   var dup={};customers.forEach(function(c){dup[c.name]=(dup[c.name]||0)+1});
-  $('custList').innerHTML=list.length?list.map(function(c){return '<button class="cfCust'+(cur&&cur.file===c.file?' sel':'')+'" data-f="'+esc(c.file)+'"><strong>'+esc(c.name)+'</strong><small>'+esc([c.kasse,c.pflegegrad].filter(Boolean).join(' · '))+(dup[c.name]>1?' · Datei: '+esc(c.file):'')+(c.pending_edit?' · <b style="color:#8a5a00">Web-Änderung</b>':'')+'</small></button>'}).join(''):'<div class="empty">Keine Kunden gefunden.</div>';
+  $('custList').innerHTML=list.length?list.map(function(c){return '<button class="cfCust'+(cur&&cur.file===c.file?' sel':'')+'" data-f="'+esc(c.file)+'"><strong>'+esc(c.name)+'</strong><small>'+esc([c.kasse,c.pflegegrad,c.beratung?'Beratung':''].filter(Boolean).join(' · '))+(dup[c.name]>1?' · Datei: '+esc(c.file):'')+(c.pending_edit?' · <b style="color:#8a5a00">Web-Änderung</b>':'')+'</small></button>'}).join(''):'<div class="empty">Keine Kunden gefunden.</div>';
 }
 $('custSearch').oninput=renderListe;
 $('custList').onclick=function(e){var b=e.target.closest('.cfCust');if(b)oeffneKunde(b.dataset.f)};
@@ -110,7 +110,7 @@ function renderDetail(){
   if(cur.pending||d._portal_edit)h+='<div class="note">Im Web geändert'+(d._portal_edit?' von '+esc(d._portal_edit.by||'')+' am '+esc(new Date(d._portal_edit.at).toLocaleString('de-DE')):'')+(cur.pending?' – '+cur.pending+' Änderung(en) noch nicht in Studio übernommen (Studio zeigt sie beim nächsten Start an).':'')+'</div>';
   if(warn.length&&!editMode)h+='<div class="note noteBad"><b>Datum prüfen:</b> '+warn.map(function(w){return esc('Pflegegrad-Zeile '+(w.zeile+1)+' ('+(w.feld==='von'?'Seit':'Bis')+'): '+w.text+(w.vorschlag?' Vorschlag: '+w.vorschlag:''))}).join('<br>')+' <button id="btnFix" style="margin-left:8px">Jetzt korrigieren</button></div>';
   if(editMode){h+=editForm(d)}else{
-    h+='<div class="cfPanel"><h2>Stammdaten</h2><div class="cfDl">'+dl('Name',d.pflege_name)+dl('Kasse',d.pflege_kasse)+dl('Anschrift',d.pflege_anschrift)+dl('Vers.-Nr.',d.pflege_kvnr)+dl('Geburtsdatum',d.pflege_geburtsdatum)+dl('Telefon',d.pflege_telefon)+'</div></div>';
+    h+='<div class="cfPanel"><h2>Stammdaten</h2><div class="cfDl">'+dl('Name',d.pflege_name)+dl('Kasse',d.pflege_kasse)+dl('Anschrift',d.pflege_anschrift)+dl('Vers.-Nr.',d.pflege_kvnr)+dl('Geburtsdatum',d.pflege_geburtsdatum)+dl('Telefon',d.pflege_telefon)+dl('Pflegeberatung',d.pflegeberatung_kunde?'Ja (§ 37 Abs. 3)':'Nein')+'</div></div>';
     h+='<div class="cfPanel"><h2>Pflegegrade</h2>'+pgTabelle(d)+'</div>';
     h+='<div class="cfPanel"><h2>Verhinderungspflege</h2>'+vpTabelle(d)+'</div>';
     if(d.person_name||d.person_anschrift)h+='<div class="cfPanel"><h2>Bevollmächtigte Person / Ansprechpartner</h2><div class="cfDl">'+dl('Name',d.person_name)+dl('Anschrift',d.person_anschrift)+dl('Geburtsdatum',d.person_geburtsdatum)+dl('Verhältnis',d.person_verhaeltnis)+'</div></div>';
@@ -131,6 +131,7 @@ function editForm(d){
   var pg=CFForm.pflegegradHtml(d);
   return '<form class="cfPanel kf" id="kfRoot" onsubmit="return false"><div class="wizardSteps"><span data-jump="e1">1 Person</span><span data-jump="e2">2 Pflegegrad</span><span data-jump="e3">3 Pflegeperson</span><span data-jump="e5">4 Entlastung</span><span data-jump="e6">5 Verhinderungspflege</span><span data-jump="e9">6 Berechnung</span></div>'+
     '<h3 class="kfH" id="e1">1. Pflegebedürftige Person</h3>'+CFForm.personHtml(d,{nameFix:true})+
+    '<div class="kfF" style="margin:4px 0 8px"><label style="display:flex;gap:8px;align-items:center;text-transform:none;font-size:14px;color:var(--text)"><input type="checkbox" id="f_beratung"'+(d.pflegeberatung_kunde?' checked':'')+' style="width:auto"> Auch Pflegeberatung (§ 37 Abs. 3)</label><p class="mini">Markiert die Person als Beratungskunde. Studio übernimmt das beim nächsten Start und legt die Akte für das UG-Portal im Ordner Portal_Eingang ab.</p></div>'+
     '<h3 class="kfH" id="e2">2. Pflegegrad</h3>'+pg.html+
     '<h3 class="kfH" id="e3">3. Pflegeperson <small>(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)</small></h3>'+CFForm.pflegepersonHtml(d)+
     '<h3 class="kfH" id="e5">4. Entlastungsbetrag (§ 45b SGB XI) <small>– je Jahr</small></h3>'+CFForm.entHtml(d,pg.form)+
@@ -164,7 +165,8 @@ function bindDetail(){
 /* ---------- Speichern ---------- */
 async function speichern(){
   var root=$('kfRoot'),alt=cur.data,neu=CFForm.collect(root,alt),ch={};
-  var erlaubt=['pflege_anschrift','pflege_geburtsdatum','pflege_telefon','pflege_kasse','pflege_kvnr','person_name','person_anschrift','person_geburtsdatum','person_verhaeltnis','pflegegrade','pflegegrad_seit_angabe','entlastung_jahre','verhinderungspflege','abzug_prozent','aufnahme_notizen'];
+  var fb=$('f_beratung');if(fb&&!!fb.checked!==!!alt.pflegeberatung_kunde)neu.pflegeberatung_kunde=!!fb.checked;
+  var erlaubt=['pflege_anschrift','pflege_geburtsdatum','pflege_telefon','pflege_kasse','pflege_kvnr','person_name','person_anschrift','person_geburtsdatum','person_verhaeltnis','pflegegrade','pflegegrad_seit_angabe','pflegeberatung_kunde','entlastung_jahre','verhinderungspflege','abzug_prozent','aufnahme_notizen'];
   var diff=CFForm.geaendert(alt,neu);if(!('abzug_prozent' in alt)&&diff.abzug_prozent==='40')delete diff.abzug_prozent;erlaubt.forEach(function(k){if(k in diff)ch[k]=diff[k]});
   if(!Object.keys(ch).length){alert('Es wurde nichts geändert.');return}
   var w=CFC.pruefePhasen(ch.pflegegrade||neu.pflegegrade);if(w.length&&!confirm('Ein Datum im Pflegegrad ist ungültig:\n'+w.map(function(x){return x.text}).join('\n')+'\n\nTrotzdem speichern?'))return;
