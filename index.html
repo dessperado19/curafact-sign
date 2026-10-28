@@ -29,7 +29,7 @@
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="kfc.js"></script><script src="cf-calc.js?v=15"></script><script src="cf-form.js?v=15"></script><script src="cf-api.js?v=15"></script><script src="cf-rechner.js?v=15"></script>
+<script src="cf-aufnahme-druck.js?v=1"></script><script src="kfc.js"></script><script src="cf-calc.js?v=15"></script><script src="cf-form.js?v=15"></script><script src="cf-api.js?v=15"></script><script src="cf-rechner.js?v=15"></script>
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
@@ -106,7 +106,7 @@ function helperPrefixe(d){var n=new Set();Object.keys(d).forEach(function(k){var
 function renderDetail(){
   var d=cur.data,warn=CFC.pruefePhasen(d.pflegegrade);
   var h='<div class="cfTop"><div><h1>'+esc(d.pflege_name||'Kunde')+'</h1><p>'+esc([d.pflege_kasse,d.pflege_kvnr].filter(Boolean).join(' · '))+'</p></div><div class="actions">'+
-    (editMode?'<button class="primaryBtn" id="btnSave">Speichern</button><button id="btnCancel">Abbrechen</button>':'<button class="primaryBtn" id="btnEdit">Bearbeiten</button><button id="btnClickup">In ClickUp öffnen</button><button id="btnFaEdit">Fernaufnahme (Änderungen)</button>')+'</div></div>';
+    (editMode?'<button class="primaryBtn" id="btnSave">Speichern</button><button id="btnCancel">Abbrechen</button>':'<button class="primaryBtn" id="btnEdit">Bearbeiten</button><button id="btnClickup">In ClickUp öffnen</button><button id="btnFaEdit">Fernaufnahme (Änderungen)</button><button id="btnAufnDruck" title="Ausgefüllten Aufnahmebogen drucken / als PDF sichern">Aufnahmebogen drucken</button>')+'</div></div>';
   if(cur.pending||d._portal_edit)h+='<div class="note">Im Web geändert'+(d._portal_edit?' von '+esc(d._portal_edit.by||'')+' am '+esc(new Date(d._portal_edit.at).toLocaleString('de-DE')):'')+(cur.pending?' – '+cur.pending+' Änderung(en) noch nicht in Studio übernommen (Studio zeigt sie beim nächsten Start an).':'')+'</div>';
   if(warn.length&&!editMode)h+='<div class="note noteBad"><b>Datum prüfen:</b> '+warn.map(function(w){return esc('Pflegegrad-Zeile '+(w.zeile+1)+' ('+(w.feld==='von'?'Seit':'Bis')+'): '+w.text+(w.vorschlag?' Vorschlag: '+w.vorschlag:''))}).join('<br>')+' <button id="btnFix" style="margin-left:8px">Jetzt korrigieren</button></div>';
   if(editMode){h+=editForm(d)}else{
@@ -149,6 +149,7 @@ function bindDetail(){
   ['btnCancel','btnCancel2'].forEach(function(id){if($(id))$(id).onclick=function(){editMode=false;renderDetail();ladeNotizen()}});
   ['btnSave','btnSave2'].forEach(function(id){if($(id))$(id).onclick=speichern});
   if($('btnClickup'))$('btnClickup').onclick=clickupOeffnen;
+  if($('btnAufnDruck'))$('btnAufnDruck').onclick=function(){CFAufnahmeDruck.drucken(d)};
   if($('btnFaEdit'))$('btnFaEdit').onclick=function(){startFernaufnahme(d.pflege_name||'',prefillPayload(d))};
   if(editMode)return;
   $('btnNach').onclick=function(){$('resNach').innerHTML=CFC.nachweisHtml(d,$('optRueck').checked,$('optPar').checked);$('btnNachPrint').classList.remove('hidden')};
