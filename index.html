@@ -43,7 +43,7 @@ function zeigeAnsicht(v){
   if(r&&!rechnerGemountet){rechnerGemountet=true;CFRechner.mount($('viewRechner'))}
 }
 document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();zeigeAnsicht(a.getAttribute('href')==='rechner.html'?'rechner':'kunden')})});
-(function(){var nav=document.querySelector('#sideNav .cfNav'),b=document.createElement('button');b.id='faNewBtn';b.type='button';b.textContent='+ Neuer Kunde (Link / QR)';nav.insertBefore(b,nav.children[1]||null)})();
+(function(){var nav=document.querySelector('#sideNav .cfNav'),b=document.createElement('button');b.id='faNewBtn';b.type='button';b.textContent='+ Neuer Kunde (Link / QR)';nav.insertBefore(b,nav.children[1]||null);var q=document.createElement('button');q.id='faPdfBtn';q.type='button';q.textContent='Aufnahmebogen (PDF)';q.title='Leeren Neukunden-Aufnahmebogen zum Ausdrucken öffnen';q.onclick=function(){window.open('Neukunden-Aufnahmebogen.pdf','_blank')};nav.insertBefore(q,b.nextSibling)})();
 
 /* ---------- Anmeldung ---------- */
 function zeigeLogin(msg){$('appBox').classList.add('hidden');$('loginBox').classList.remove('hidden');$('loginErr').textContent=msg||'';$('loginCode').value='';setTimeout(function(){($('loginUser').value?$('loginCode'):$('loginUser')).focus()},50)}
