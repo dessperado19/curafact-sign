@@ -75,6 +75,15 @@ document.addEventListener('focusout',function(e){
   else if(d){el.value=KFC.fmt(d);el.classList.remove('ungueltig')}
   else el.classList.add('ungueltig');
 });
+/* Ziffernblock am iPhone hat keinen Punkt: Punkte nach Tag und Monat automatisch setzen (nicht beim Löschen) */
+document.addEventListener('input',function(e){
+  var el=e.target;if(!el.classList||!el.classList.contains('dt'))return;
+  if(e.inputType&&e.inputType.indexOf('delete')===0)return;
+  var v=el.value.replace(/\.{2,}/g,'.');
+  if(/^\d{2}$/.test(v)||/^\d{1,2}\.\d{2}$/.test(v))v+='.';
+  if(v.length>10)v=v.slice(0,10);
+  if(v!==el.value)el.value=v;
+});
 function setzeSeite(titel,sub){$('pageTitle').textContent=titel;$('pageSub').textContent=sub||''}
 
 /* ---------- Nachbarschaftshilfe ---------- */
