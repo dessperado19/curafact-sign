@@ -34,7 +34,7 @@
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
-var customers=[],cur=null,editMode=false,abzugAnzeige=null,editDirty=false;
+var customers=[],cur=null,editMode=false,abzugAnzeige=null,editDirty=false,curAufn='';
 function editVerlassenOk(){return !(editMode&&editDirty)||confirm('Es gibt ungespeicherte Änderungen. Wirklich verlassen?')}
 window.addEventListener('beforeunload',function(e){if(editMode&&editDirty){e.preventDefault();e.returnValue=''}});
 document.getElementById('sideNav').innerHTML=cfSide('kunden');
@@ -80,14 +80,18 @@ function renderListe(){
   var q=$('custSearch').value.trim().toLowerCase(),list=customers.filter(function(c){return !q||String(c.name||'').toLowerCase().indexOf(q)>=0});
   $('custCount').textContent=list.length;
   var dup={};customers.forEach(function(c){dup[c.name]=(dup[c.name]||0)+1});
-  $('custList').innerHTML=list.length?list.map(function(c){return '<button class="cfCust'+(cur&&cur.file===c.file?' sel':'')+'" data-f="'+esc(c.file)+'"><strong>'+esc(c.name)+'</strong><small>'+esc([c.kasse,c.pflegegrad,c.beratung?'Beratung':''].filter(Boolean).join(' · '))+(dup[c.name]>1?' · Datei: '+esc(c.file):'')+(c.pending_edit?' · <b style="color:#8a5a00">Web-Änderung</b>':'')+'</small></button>'}).join(''):'<div class="empty">Keine Kunden gefunden.</div>';
+  var kundenHtml=list.length?list.map(function(c){return '<button class="cfCust'+(cur&&cur.file===c.file?' sel':'')+'" data-f="'+esc(c.file)+'"><strong>'+esc(c.name)+'</strong><small>'+esc([c.kasse,c.pflegegrad,c.beratung?'Beratung':''].filter(Boolean).join(' · '))+(dup[c.name]>1?' · Datei: '+esc(c.file):'')+(c.pending_edit?' · <b style="color:#8a5a00">Web-Änderung</b>':'')+'</small></button>'}).join(''):'';
+  var neu=neueAufnahmen().filter(function(x){return !q||String(x.name||x.label||'').toLowerCase().indexOf(q)>=0});
+  var neuHtml=neu.length?'<div class="mini" style="padding:6px 4px 2px;font-weight:700">Neu, noch nicht in Studio ('+neu.length+')</div>'+neu.map(function(x){return '<button class="cfCust cfNeu'+(curAufn===x.session?' sel':'')+'" data-s="'+esc(x.session)+'"><strong>'+esc(x.name||x.label||'Neue Aufnahme')+'</strong><small>'+esc(['Neu, noch nicht in Studio',x.kasse,x.geburtsdatum].filter(Boolean).join(' · '))+'</small></button>'}).join(''):'';
+  $('custCount').textContent=list.length+neu.length;
+  $('custList').innerHTML=(neuHtml+kundenHtml)||'<div class="empty">Keine Kunden gefunden.</div>';
 }
 $('custSearch').oninput=renderListe;
-$('custList').onclick=function(e){var b=e.target.closest('.cfCust');if(b)oeffneKunde(b.dataset.f)};
+$('custList').onclick=function(e){var b=e.target.closest('.cfCust');if(!b)return;if(b.dataset.s)oeffneAufnahme(b.dataset.s);else oeffneKunde(b.dataset.f)};
 
 async function oeffneKunde(file){
   if(!editVerlassenOk())return;
-  editMode=false;editDirty=false;abzugAnzeige=null;
+  editMode=false;editDirty=false;abzugAnzeige=null;curAufn='';
   $('detail').innerHTML='<div class="empty">Lade …</div>';
   var r=await CFAPI.call('web_customer',{file:file});
   if(!r||!r.ok){$('detail').innerHTML='<div class="empty">'+esc((r&&r.message)||'Kunde konnte nicht geladen werden.')+'</div>';return}
@@ -123,7 +127,7 @@ async function ladeAufnahmen(){
   if(!r||!r.ok){box.innerHTML='<div class="cfTop"><div><h1>Aufnahmen</h1></div></div><div class="cfPanel"><div class="empty">'+esc((r&&r.message)||'Aufnahmen konnten nicht geladen werden.')+'</div></div>';return}
   aufnDaten=(r.sessions||[]).filter(function(x){return !x.nur_mitarbeiter});
   aufnSig=(r2&&r2.ok&&r2.signatures)||[];
-  aufnBadge();
+  aufnBadge();renderListe();
   zeichneAufnahmen();
 }
 function aufnBadge(){
@@ -184,7 +188,9 @@ function zeichneAufnahmen(){
 async function aufnBadgePruefen(){
   if(document.hidden||!CFAPI||!CFAPI.user)return;
   var r=await CFAPI.call('intake_list');if(!r||!r.ok)return;
-  aufnDaten=(r.sessions||[]).filter(function(x){return !x.nur_mitarbeiter});aufnBadge();
+  var vorher=neueAufnahmen().length;
+  aufnDaten=(r.sessions||[]).filter(function(x){return !x.nur_mitarbeiter});aufnBadge();renderListe();
+  if(neueAufnahmen().length<vorher)ladeKunden();
 }
 setInterval(aufnBadgePruefen,60000);
 async function aufnAnsehen(session){
@@ -195,6 +201,40 @@ async function aufnAnsehen(session){
   var hs=(d.nachbarschaftshilfen||[]).map(function(x){return (x.hilfe_name||'—')+(x.hilfe_sig_dataurl?' (unterschrieben)':'')}).join(', ');
   var rows=(r.helpers||[]);
   el.innerHTML='<h3 style="margin:16px 0 6px">'+esc(d.pflege_name||'Aufnahme')+(r.main.draft?' <span class="mini">(Entwurf)</span>':'')+'</h3><div class="cfDl">'+dl('Geburtsdatum',d.pflege_geburtsdatum)+dl('Anschrift',d.pflege_anschrift)+dl('Telefon',d.pflege_telefon)+dl('Kasse',d.pflege_kasse)+dl('Vers.-Nr.',d.pflege_kvnr)+dl('Pflegegrade',pg)+dl('Pflegeperson',d.person_name)+dl('Nachbarschaftshilfe',hs||rows.map(function(x){return (x.data&&x.data.hilfe_name)||''}).filter(Boolean).join(', '))+dl('Unterschrift Kunde',r.main.dataurl?'vorhanden':'')+dl('Anmerkungen',d.anmerkungen)+'</div>';
+}
+
+/* ---------- Neue Aufnahmen in der Kundenliste (noch nicht von Studio übernommen) ---------- */
+function neueAufnahmen(){return aufnDaten.filter(function(x){return x.main_received&&!x.draft&&!x.is_edit&&!x.imported_file&&!x.nur_mitarbeiter})}
+function aufnFormFuellen(fr,d,n){
+  n=n||0;
+  try{
+    var w=fr.contentWindow,doc=w.document;
+    if(doc.getElementById('f_pflege_name')&&typeof w.fuelle==='function'){
+      w.fuelle(d);
+      var cb=doc.getElementById('rueckwirkend_beantragen');if(cb)cb.checked=!!d.rueckwirkend_beantragen;
+      var sa=doc.getElementById('person_same_addr');if(sa)sa.checked=!!d.person_same_addr;
+      var an=doc.getElementById('anmerkungen');if(an)an.value=d.anmerkungen||'';
+      return;
+    }
+  }catch(e){}
+  if(n<40)setTimeout(function(){aufnFormFuellen(fr,d,n+1)},250);
+}
+async function oeffneAufnahme(session){
+  if(!editVerlassenOk())return;
+  editMode=false;editDirty=false;cur=null;curAufn=session;renderListe();
+  $('detail').innerHTML='<div class="empty">Lade …</div>';
+  var r=await CFAPI.call('intake_get',{session:session});
+  if(!r||!r.ok||!r.main){$('detail').innerHTML='<div class="empty">Keine Angaben vorhanden.</div>';return}
+  var d=Object.assign({},r.main.data||{});
+  if(r.main.dataurl)d.pflege_sig_dataurl=r.main.dataurl;
+  var x=aufnDaten.filter(function(a){return a.session===session})[0]||{};
+  var q='intake.html?s='+encodeURIComponent(session)+'&l='+encodeURIComponent(x.label||d.pflege_name||'Aufnahme')+'&embed=1';
+  $('detail').innerHTML='<div class="cfTop"><div><h1>'+esc(d.pflege_name||'Neue Aufnahme')+'</h1><p>Neu, noch nicht in Studio'+(x.note?' · '+esc(x.note):'')+'</p></div><div class="actions"><button id="btnAufnZu">Schließen</button></div></div>'+
+    '<div class="note">Hier siehst du die Angaben der Aufnahme und kannst sie ändern. Änderungen gelten, sobald du im Formular unten auf „Absenden“ klickst. Studio übernimmt die Aufnahme danach als Kunde (läuft Studio, innerhalb weniger Minuten; sonst beim nächsten Start).</div>'+
+    '<iframe id="aufnFrame" title="Aufnahme" src="'+esc(q)+'" style="width:100%;height:calc(100vh - 230px);min-height:560px;border:1px solid var(--line);border-radius:18px;background:#eef4f9"></iframe>';
+  $('btnAufnZu').onclick=function(){curAufn='';renderListe();$('detail').innerHTML='<div class="empty">Bitte links einen Kunden auswählen.</div>'};
+  var fr=$('aufnFrame');
+  fr.onload=function(){aufnFormFuellen(fr,d,0)};
 }
 
 /* ---------- Detailansicht ---------- */
