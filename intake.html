@@ -10,30 +10,31 @@
   <div id="mainForm" class="hidden">
     <p class="note hidden" id="prefillNote">Ein paar Angaben sind schon ausgefüllt – bitte prüfen und bei Bedarf korrigieren.</p>
     <div class="cfPanel kf" id="kfRoot">
-      <div class="wizardSteps"><span data-jump="s1">1 Person</span><span data-jump="s2">2 Pflegegrad</span><span data-jump="s3">3 Pflegeperson</span><span data-jump="s4">4 Nachbarschaftshilfe</span><span data-jump="s5">5 Entlastung</span><span data-jump="s6">6 Verhinderungspflege</span><span data-jump="s8">7 Unterschrift</span></div>
+      <div class="wizardSteps"><span data-jump="s1">1 Person</span><span data-jump="s2">2 Pflegegrad</span><span data-jump="s3">3 Entlastung</span><span data-jump="s4">4 Pflegeperson</span><span data-jump="s5">5 Nachbarschaftshilfe</span><span data-jump="s6">6 Verhinderungspflege</span><span data-jump="s7">7 Notizen</span><span data-jump="s8">8 Unterschriften</span><span data-jump="s9">9 Berechnung</span></div>
       <h3 class="kfH" id="s1">1. Pflegebedürftige Person</h3><div id="boxPerson"></div>
       <div class="kfF" style="margin-top:10px"><label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--text);font-weight:400"><input type="checkbox" id="rueckwirkend_beantragen"> Rückwirkend beantragen (rückwirkende Ansprüche prüfen und mit beantragen)</label></div>
       <h3 class="kfH" id="s2">2. Pflegegrad</h3><div id="boxPg"></div>
-      <h3 class="kfH" id="s3">3. Pflegeperson <small>(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)</small></h3>
+      <h3 class="kfH" id="s3">3. Entlastungsbetrag (§ 45b SGB XI) <small>– je Jahr</small></h3><div id="boxEnt"></div>
+      <h3 class="kfH" id="s4">4. Pflegeperson <small>(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)</small></h3>
       <div class="kfF"><label style="display:flex;gap:8px;align-items:center;font-size:14px;color:var(--text);font-weight:400"><input type="checkbox" id="person_same_addr"> Gleiche Anschrift wie pflegebedürftige Person</label></div>
       <div id="boxPflegeperson" style="margin-top:8px"></div>
-      <h3 class="kfH" id="s4">4. Nachbarschaftshilfe</h3>
+      <h3 class="kfH" id="s5">5. Nachbarschaftshilfe</h3>
       <p class="mini" style="margin-top:0">Trag ein, was du weißt. Möchte die Person es lieber selbst ausfüllen (inkl. eigener Unterschrift), erzeuge in der jeweiligen Person einen Link – deine Angaben werden übernommen und können dort noch korrigiert werden.</p>
       <div id="helperSlots"></div><div class="actions" style="margin-top:8px"><button type="button" id="addHelperSlotBtn">+ weitere Nachbarschaftshilfe</button></div>
-      <h3 class="kfH" id="s5">5. Entlastungsbetrag (§ 45b SGB XI) <small>– je Jahr</small></h3><div id="boxEnt"></div>
       <h3 class="kfH" id="s6">6. Verhinderungspflege / Kurzzeitpflege <small>– je Jahr</small></h3><div id="boxVp"></div>
-      <h3 class="kfH" id="s7">7. Anmerkungen</h3>
-      <div class="kfF"><textarea id="anmerkungen" rows="3" placeholder="Sonstiges, das wir wissen sollten (optional)"></textarea></div>
-      <h3 class="kfH" id="s8">8. Unterschrift</h3>
+      <h3 class="kfH" id="s7">7. Zusätzliche Notizen / Informationen</h3>
+      <div class="kfF"><textarea id="anmerkungen" rows="3" placeholder="z. B. Notizen vom Aufnahmebogen, Sonstiges, das wir wissen sollten (optional)"></textarea></div>
+      <h3 class="kfH" id="s8">8. Unterschriften</h3>
       <div class="kfBox"><div class="kfBoxHead"><strong>Unterschrift pflegebedürftige Person / Pflegeperson</strong></div>
         <div class="sigFileRow"><button type="button" id="sigfilebtn_main">Datei wählen</button><input type="file" accept="image/*" id="sigfile_main" class="hidden"><span class="fileStatusStyle" id="sigfilestatus_main">Keine Datei ausgewählt</span></div>
         <img id="sigpreview_main" class="sigPreviewImg hidden"><div class="sigArea"><canvas id="sig_main"></canvas></div>
         <div class="sigbar"><button type="button" id="sigclear_main">Löschen</button></div></div>
-    </div>
-    <div class="cfPanel"><div class="cfHead"><h2>Berechnung / Nachweis</h2></div>
+      <div id="helperSigs"></div>
+      <h3 class="kfH" id="s9">9. Berechnung</h3>
       <p class="mini" style="margin-top:0">Zeigt auf Basis der Angaben oben, was zukünftig laufend möglich ist und – falls gewünscht – was rückwirkend beantragt werden kann.</p>
       <div class="actions"><label style="display:flex;align-items:center"><input type="checkbox" id="calc_rueck">Rückwirkend</label><label style="display:flex;align-items:center"><input type="checkbox" id="calc_par" checked>Rechtsgrundlagen (§)</label><button type="button" id="calcShowBtn">Berechnung anzeigen</button></div>
-      <div id="calcResult"></div></div>
+      <div id="calcResult"></div>
+    </div>
     <button type="button" class="primaryBtn" id="submitBtn">Absenden</button><div id="msg"></div>
   </div>
 
@@ -100,14 +101,15 @@ function addHelperSlot(pre){
     '<div class="kfF" style="grid-column:span 12"><label>Anschrift (Straße, PLZ, Ort)</label><input id="h'+n+'_anschrift" value="'+esc(pre.anschrift||'')+'"></div>'+
     dtFeld('h'+n+'_geburtsdatum','Geburtsdatum (TT.MM.JJJJ)',toDe(pre.geburtsdatum),6)+
     '<div class="kfF" style="grid-column:span 6"><label>Telefon</label><input id="h'+n+'_telefon" type="tel" value="'+esc(pre.telefon||'')+'"></div></div>'+
-    '<div class="sigArea" style="margin-top:12px"><label style="font-size:12px;font-weight:700;color:#4f6a85">Unterschrift</label>'+
-    '<div class="sigFileRow" style="margin-top:6px"><button type="button" id="sigfilebtn_h'+n+'">Datei wählen</button><input type="file" accept="image/*" id="sigfile_h'+n+'" class="hidden"><span class="fileStatusStyle" id="sigfilestatus_h'+n+'">Keine Datei ausgewählt</span></div>'+
-    '<img id="sigpreview_h'+n+'" class="sigPreviewImg hidden"><canvas id="sig_h'+n+'"></canvas><div class="sigbar"><button type="button" id="sigclear_h'+n+'">Löschen</button></div></div>'+
     '<div style="margin-top:12px"><button type="button" class="shareSlotBtn">Link an diese Person senden (mit meinen Angaben vorausgefüllt)</button></div><div class="linkResult" id="linkresult_h'+n+'"></div><div class="note hidden helperOk" style="margin-top:8px"></div>';
+  var sigHtml='<div class="sigArea" style="margin-top:12px">'+'<div class="sigFileRow" style="margin-top:6px"><button type="button" id="sigfilebtn_h'+n+'">Datei wählen</button><input type="file" accept="image/*" id="sigfile_h'+n+'" class="hidden"><span class="fileStatusStyle" id="sigfilestatus_h'+n+'">Keine Datei ausgewählt</span></div>'+'<img id="sigpreview_h'+n+'" class="sigPreviewImg hidden"><canvas id="sig_h'+n+'"></canvas><div class="sigbar"><button type="button" id="sigclear_h'+n+'">Löschen</button></div></div>';
+  var sigBox=document.createElement('div');sigBox.className='kfBox';sigBox.dataset.n=n;
+  sigBox.innerHTML='<div class="kfBoxHead"><strong>Unterschrift '+n+'. Nachbarschaftshilfe</strong></div>'+sigHtml;
+  $('helperSigs').appendChild(sigBox);
   $('helperSlots').appendChild(slot);
   helperSigs[n]=setupSigInput('h'+n);
   if(pre.sig_dataurl)helperSigs[n].setDataUrl(pre.sig_dataurl);
-  var rm=slot.querySelector('.removeSlotBtn');if(rm)rm.onclick=function(){slot.remove();delete helperSigs[n]};
+  var rm=slot.querySelector('.removeSlotBtn');if(rm)rm.onclick=function(){slot.remove();sigBox.remove();delete helperSigs[n]};
   slot.querySelector('.shareSlotBtn').onclick=function(){
     var mainName=($('f_pflege_name').value||'').trim();
     var url=location.origin+location.pathname+'?role=helper&s='+encodeURIComponent(SESSION)+(HKEY?'&k='+encodeURIComponent(HKEY):'')+'&h='+n+'&l='+encodeURIComponent('Nachbarschaftshilfe'+(mainName?(' für '+mainName):''))+

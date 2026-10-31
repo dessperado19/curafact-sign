@@ -246,41 +246,61 @@ function helferSlotHtml(n,pre,kannEntfernen){
     '<div class="kfGrid"><div class="kfF" style="grid-column:span 12"><label>Name, Vorname</label><input id="h'+n+'_name" value="'+esc(pre.name||'')+'"></div>'+
     '<div class="kfF" style="grid-column:span 12"><label>Anschrift (Straße, PLZ, Ort)</label><input id="h'+n+'_anschrift" value="'+esc(pre.anschrift||'')+'"></div>'+
     '<div class="kfF" style="grid-column:span 6"><label>Geburtsdatum (TT.MM.JJJJ)</label><input id="h'+n+'_geburtsdatum" value="'+esc(pre.geburtsdatum||'')+'"></div>'+
-    '<div class="kfF" style="grid-column:span 6"><label>Telefon</label><input id="h'+n+'_telefon" type="tel" value="'+esc(pre.telefon||'')+'"></div></div>'+
-    '<div class="sigArea" style="margin-top:12px"><label style="font-size:12px;font-weight:700;color:#4f6a85">Unterschrift (mit Finger oder Stift im Feld, oder Datei wählen)</label>'+
-    '<div class="sigFileRow" style="margin-top:6px"><button type="button" id="sigfilebtn_h'+n+'">Datei wählen</button><input type="file" accept="image/*" id="sigfile_h'+n+'" class="hidden"><span class="fileStatusStyle" id="sigfilestatus_h'+n+'">Keine Datei ausgewählt</span></div>'+
-    '<img id="sigpreview_h'+n+'" class="sigPreviewImg hidden" alt="Unterschrift"><div id="sigdraw_h'+n+'"><canvas id="sig_h'+n+'"></canvas></div><div class="sigbar"><button type="button" id="sigredo_h'+n+'" class="hidden">Neu unterschreiben</button><button type="button" id="sigclear_h'+n+'">Unterschrift entfernen</button></div></div></div>';
+    '<div class="kfF" style="grid-column:span 6"><label>Telefon</label><input id="h'+n+'_telefon" type="tel" value="'+esc(pre.telefon||'')+'"></div></div></div>';
+}
+/* Unterschriftsfeld (Finger/Stift oder Datei); key = 'pf' (Pflegebedürftige) oder 'h<n>' (Nachbarschaftshilfe) */
+function sigBoxHtml(key,titel){
+  return '<div class="kfBox sigBoxE" data-key="'+key+'"><div class="kfBoxHead"><strong>'+esc(titel)+'</strong></div><div class="sigArea">'+
+    '<div class="sigFileRow"><button type="button" id="sigfilebtn_'+key+'">Datei wählen</button><input type="file" accept="image/*" id="sigfile_'+key+'" class="hidden"><span class="fileStatusStyle" id="sigfilestatus_'+key+'">Keine Datei ausgewählt</span></div>'+
+    '<img id="sigpreview_'+key+'" class="sigPreviewImg hidden" alt="Unterschrift"><div id="sigdraw_'+key+'"><canvas id="sig_'+key+'"></canvas></div><div class="sigbar"><button type="button" id="sigredo_'+key+'" class="hidden">Neu unterschreiben</button><button type="button" id="sigclear_'+key+'">Unterschrift entfernen</button></div></div></div>';
+}
+function sigBinden(key,alt){
+  editSigs[key]=setupSigInput(key);
+  if(alt){
+    editSigs[key].setDataUrl(alt);
+    var dr=$('sigdraw_'+key),redo=$('sigredo_'+key);dr.classList.add('hidden');redo.classList.remove('hidden');
+    redo.onclick=function(){dr.classList.remove('hidden');redo.classList.add('hidden')};
+    $('sigclear_'+key).addEventListener('click',function(){dr.classList.remove('hidden');redo.classList.add('hidden')});
+  }
+}
+function helferVorhandene(d){
+  var vorh=helperPrefixe(d).filter(function(n){var p=helferPrefix(n);return d[p+'_name']||d[p+'_anschrift']||d[p+'_sig_dataurl']||d[p+'_geburtsdatum']||d[p+'_telefon']});
+  return vorh.length?vorh:[1];
 }
 function helferEditHtml(d){
-  var vorh=helperPrefixe(d).filter(function(n){var p=helferPrefix(n);return d[p+'_name']||d[p+'_anschrift']||d[p+'_sig_dataurl']||d[p+'_geburtsdatum']||d[p+'_telefon']});
-  if(!vorh.length)vorh=[1];
-  var h='<div id="helperSlots">'+vorh.map(function(n){var p=helferPrefix(n);return helferSlotHtml(n,{name:d[p+'_name'],anschrift:d[p+'_anschrift'],geburtsdatum:d[p+'_geburtsdatum'],telefon:d[p+'_telefon']},n>1)}).join('')+'</div>';
-  return h+'<div class="actions" style="margin-top:10px"><button type="button" id="hAdd">+ weitere Nachbarschaftshilfe</button></div><p class="mini">Wird mit „Speichern“ gesichert. Studio übernimmt es beim nächsten Start nach Bestätigung (Button „Web-Änderungen“).</p>';
+  var h='<div id="helperSlots">'+helferVorhandene(d).map(function(n){var p=helferPrefix(n);return helferSlotHtml(n,{name:d[p+'_name'],anschrift:d[p+'_anschrift'],geburtsdatum:d[p+'_geburtsdatum'],telefon:d[p+'_telefon']},n>1)}).join('')+'</div>';
+  return h+'<div class="actions" style="margin-top:10px"><button type="button" id="hAdd">+ weitere Nachbarschaftshilfe</button></div>';
 }
-function helferSlotBinden(slot,sigAlt){
-  var n=+slot.dataset.n;editSigs[n]=setupSigInput('h'+n);
-  if(sigAlt){
-    editSigs[n].setDataUrl(sigAlt);
-    var dr=$('sigdraw_h'+n),redo=$('sigredo_h'+n);dr.classList.add('hidden');redo.classList.remove('hidden');
-    redo.onclick=function(){dr.classList.remove('hidden');redo.classList.add('hidden')};
-    $('sigclear_h'+n).addEventListener('click',function(){dr.classList.remove('hidden');redo.classList.add('hidden')});
-  }
-  var rm=slot.querySelector('.hRemove');if(rm)rm.onclick=function(){if(!confirm('Diese Nachbarschaftshilfe samt Unterschrift entfernen? Gilt erst nach „Speichern“.'))return;slot.dataset.removed='1';slot.style.display='none'};
+function unterschriftenEditHtml(d){
+  return '<div id="sigBoxes">'+sigBoxHtml('pf','Unterschrift pflegebedürftige Person / Pflegeperson')+helferVorhandene(d).map(function(n){return sigBoxHtml('h'+n,'Unterschrift '+n+'. Nachbarschaftshilfe')}).join('')+'</div>'+
+    '<p class="mini">Wird mit „Speichern“ gesichert. Studio übernimmt es nach Bestätigung (Button „Web-Änderungen“).</p>';
 }
 function helferEditBinden(d){
-  document.querySelectorAll('#helperSlots .helperSlot').forEach(function(slot){helferSlotBinden(slot,d[helferPrefix(+slot.dataset.n)+'_sig_dataurl'])});
+  sigBinden('pf',d.pflege_sig_dataurl);
+  document.querySelectorAll('#helperSlots .helperSlot').forEach(function(slot){
+    var n=+slot.dataset.n;sigBinden('h'+n,d[helferPrefix(n)+'_sig_dataurl']);
+    var rm=slot.querySelector('.hRemove');if(rm)rm.onclick=function(){helferEntfernen(slot)};
+  });
   var add=$('hAdd');if(!add)return;
   add.onclick=function(){
-    var slots=document.querySelectorAll('#helperSlots .helperSlot'),max=0;slots.forEach(function(s){max=Math.max(max,+s.dataset.n)});
+    var slots=document.querySelectorAll('#helperSlots .helperSlot'),max=0;slots.forEach(function(x){max=Math.max(max,+x.dataset.n)});
     if(max>=HELFER_MAX){alert('Mehr als '+HELFER_MAX+' Nachbarschaftshilfen sind nicht vorgesehen.');return}
-    var holder=document.createElement('div');holder.innerHTML=helferSlotHtml(max+1,{},true);var slot=holder.firstChild;
-    $('helperSlots').appendChild(slot);helferSlotBinden(slot,'');slot.scrollIntoView({behavior:'smooth',block:'center'});
+    var n=max+1,holder=document.createElement('div');holder.innerHTML=helferSlotHtml(n,{},true);var slot=holder.firstChild;
+    $('helperSlots').appendChild(slot);
+    var hb=document.createElement('div');hb.innerHTML=sigBoxHtml('h'+n,'Unterschrift '+n+'. Nachbarschaftshilfe');$('sigBoxes').appendChild(hb.firstChild);
+    sigBinden('h'+n,'');slot.querySelector('.hRemove').onclick=function(){helferEntfernen(slot)};slot.scrollIntoView({behavior:'smooth',block:'center'});
   };
 }
-/* Formularwerte der Nachbarschaftshilfen in die Kundendaten schreiben (neue leere Felder werden nicht angelegt) */
+function helferEntfernen(slot){
+  if(!confirm('Diese Nachbarschaftshilfe samt Unterschrift entfernen? Gilt erst nach „Speichern“.'))return;
+  slot.dataset.removed='1';slot.style.display='none';
+  var sb=document.querySelector('.sigBoxE[data-key="h'+slot.dataset.n+'"]');if(sb)sb.style.display='none';
+  editDirty=true;
+}
+/* Formularwerte der Nachbarschaftshilfen und Unterschriften in die Kundendaten schreiben (neue leere Felder werden nicht angelegt) */
 function helferEinsammeln(neu,alt){
   document.querySelectorAll('#helperSlots .helperSlot').forEach(function(slot){
-    var n=+slot.dataset.n,p=helferPrefix(n),weg=slot.dataset.removed==='1',sig=editSigs[n];
+    var n=+slot.dataset.n,p=helferPrefix(n),weg=slot.dataset.removed==='1',sig=editSigs['h'+n];
     HELFER_FELDER.forEach(function(f){
       var v;
       if(weg)v='';
@@ -289,18 +309,39 @@ function helferEinsammeln(neu,alt){
       if(v!==''||(p+'_'+f) in alt)neu[p+'_'+f]=v;
     });
   });
+  var ps=editSigs.pf?editSigs.pf.getDataUrl():'';
+  if(ps!==''||'pflege_sig_dataurl' in alt)neu.pflege_sig_dataurl=ps;
+  var nt=$('f_aufnahme_notizen');
+  if(nt){var v=nt.value.trim();if(v!==''||'aufnahme_notizen' in alt)neu.aufnahme_notizen=v}
+}
+/* Berechnung live aus dem Formular */
+var editCalcTimer=null;
+function editRechnen(){
+  var root=$('kfRoot'),el=$('editCalc');if(!root||!el)return;
+  try{var dd=CFForm.collect(root,cur.data),r=CFC.berechne(dd,($('f_abzug_prozent')||{}).value||'40');el.innerHTML=CFC.auswertungHtml(r)}
+  catch(e){el.innerHTML='<p class="mini">Berechnung nicht möglich: '+esc(String(e&&e.message||e))+'</p>'}
+}
+function editRechnenPlan(){clearTimeout(editCalcTimer);editCalcTimer=setTimeout(editRechnen,400)}
+function editNotizenBinden(){
+  if($('noteBtn'))$('noteBtn').onclick=notizSpeichern;
+  ladeNotizen();
+  if($('editCalcPrint'))$('editCalcPrint').onclick=function(){editRechnen();CFC.drucken($('editCalc').innerHTML,'Curafact Berechnung – '+(cur.data.pflege_name||''))};
+  editRechnen();
 }
 function editForm(d){
   var pg=CFForm.pflegegradHtml(d);
-  return '<form class="cfPanel kf" id="kfRoot" onsubmit="return false"><div class="wizardSteps"><span data-jump="e1">1 Person</span><span data-jump="e2">2 Pflegegrad</span><span data-jump="e3">3 Pflegeperson</span><span data-jump="e4">4 Nachbarschaftshilfe</span><span data-jump="e5">5 Entlastung</span><span data-jump="e6">6 Verhinderungspflege</span><span data-jump="e9">7 Berechnung</span></div>'+
+  return '<form class="cfPanel kf" id="kfRoot" onsubmit="return false"><div class="wizardSteps"><span data-jump="e1">1 Person</span><span data-jump="e2">2 Pflegegrad</span><span data-jump="e3">3 Entlastung</span><span data-jump="e4">4 Pflegeperson</span><span data-jump="e5">5 Nachbarschaftshilfe</span><span data-jump="e6">6 Verhinderungspflege</span><span data-jump="e7">7 Notizen</span><span data-jump="e8">8 Unterschriften</span><span data-jump="e9">9 Berechnung</span></div>'+
     '<h3 class="kfH" id="e1">1. Pflegebedürftige Person</h3>'+CFForm.personHtml(d,{nameFix:true})+
     '<div class="kfF" style="margin:4px 0 8px"><label style="display:flex;gap:8px;align-items:center;text-transform:none;font-size:14px;color:var(--text)"><input type="checkbox" id="f_beratung"'+(d.pflegeberatung_kunde?' checked':'')+' style="width:auto"> Auch Pflegeberatung (§ 37 Abs. 3)</label><p class="mini">Markiert die Person als Beratungskunde. Studio übernimmt das beim nächsten Start und legt die Akte für das UG-Portal im Ordner Portal_Eingang ab.</p></div>'+
     '<h3 class="kfH" id="e2">2. Pflegegrad</h3>'+pg.html+
-    '<h3 class="kfH" id="e3">3. Pflegeperson <small>(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)</small></h3>'+CFForm.pflegepersonHtml(d)+
-    '<h3 class="kfH" id="e4">4. Nachbarschaftshilfe <small>(Name, Anschrift, Unterschrift)</small></h3>'+helferEditHtml(d)+
-    '<h3 class="kfH" id="e5">5. Entlastungsbetrag (§ 45b SGB XI) <small>– je Jahr</small></h3>'+CFForm.entHtml(d,pg.form)+
+    '<h3 class="kfH" id="e3">3. Entlastungsbetrag (§ 45b SGB XI) <small>– je Jahr</small></h3>'+CFForm.entHtml(d,pg.form)+
+    '<h3 class="kfH" id="e4">4. Pflegeperson <small>(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)</small></h3>'+CFForm.pflegepersonHtml(d)+
+    '<h3 class="kfH" id="e5">5. Nachbarschaftshilfe</h3>'+helferEditHtml(d)+
     '<h3 class="kfH" id="e6">6. Verhinderungspflege / Kurzzeitpflege <small>– je Jahr</small></h3>'+CFForm.vpHtml(d)+
-    '<h3 class="kfH" id="e9">7. Berechnung</h3>'+CFForm.abzugHtml(d)+
+    '<h3 class="kfH" id="e7">7. Zusätzliche Notizen / Informationen</h3><div class="kfF"><textarea id="f_aufnahme_notizen" rows="4" placeholder="z. B. Notizen vom Aufnahmebogen">'+esc(d.aufnahme_notizen||'')+'</textarea></div>'+
+    '<details class="kfDet" open><summary>Notizen im Team (für alle sichtbar)</summary><div id="notesList"><div class="empty">Lade …</div></div><textarea class="cfInput" id="noteText" rows="3" placeholder="z. B. Kunde bittet um Rückruf wegen …" style="margin-top:8px"></textarea><div class="actions" style="margin-top:8px"><button type="button" class="primaryBtn" id="noteBtn">Notiz speichern</button></div></details>'+
+    '<h3 class="kfH" id="e8">8. Unterschriften</h3>'+unterschriftenEditHtml(d)+
+    '<h3 class="kfH" id="e9">9. Berechnung</h3>'+CFForm.abzugHtml(d)+'<div id="editCalc" style="margin-top:10px"></div><div class="actions" style="margin-top:8px"><button type="button" id="editCalcPrint">Berechnung drucken / als PDF</button></div>'+
     '<div class="actions kfBar"><button type="button" class="primaryBtn" id="btnSave2">Speichern</button><button type="button" id="btnCancel2">Abbrechen</button><span class="mini kfBarHint" id="kfBarHint">Änderungen werden erst mit „Speichern“ übernommen.</span></div></form>';
 }
 function zeigeAuswertung(){
@@ -309,7 +350,7 @@ function zeigeAuswertung(){
 }
 function bindDetail(){
   var d=cur.data;
-  if($('btnEdit'))$('btnEdit').onclick=function(){editMode=true;renderDetail();var root=$('kfRoot');if(CFC.pruefePhasen(d.pflegegrade).length)root.dataset.pgDirty='1';CFForm.bind(root);helferEditBinden(d);editDirty=false;['input','change','pointerup'].forEach(function(ev){root.addEventListener(ev,function(){editDirty=true})});root.querySelectorAll('.wizardSteps [data-jump]').forEach(function(s){s.onclick=function(){var t=$(s.dataset.jump);if(t)t.scrollIntoView({behavior:'smooth',block:'start'})}})};
+  if($('btnEdit'))$('btnEdit').onclick=function(){editMode=true;renderDetail();var root=$('kfRoot');if(CFC.pruefePhasen(d.pflegegrade).length)root.dataset.pgDirty='1';CFForm.bind(root,editRechnenPlan);helferEditBinden(d);editNotizenBinden();editDirty=false;['input','change','pointerup'].forEach(function(ev){root.addEventListener(ev,function(){editDirty=true})});root.querySelectorAll('.wizardSteps [data-jump]').forEach(function(s){s.onclick=function(){var t=$(s.dataset.jump);if(t)t.scrollIntoView({behavior:'smooth',block:'start'})}})};
   if($('btnFix'))$('btnFix').onclick=function(){$('btnEdit').click()};
   ['btnCancel','btnCancel2'].forEach(function(id){if($(id))$(id).onclick=function(){if(!editVerlassenOk())return;editMode=false;editDirty=false;renderDetail();ladeNotizen()}});
   ['btnSave','btnSave2'].forEach(function(id){if($(id))$(id).onclick=speichern});
@@ -330,7 +371,7 @@ function bindDetail(){
 async function speichern(){
   var root=$('kfRoot'),alt=cur.data,neu=CFForm.collect(root,alt),ch={};
   helferEinsammeln(neu,alt);var fb=$('f_beratung');if(fb&&!!fb.checked!==!!alt.pflegeberatung_kunde)neu.pflegeberatung_kunde=!!fb.checked;
-  var erlaubt=['pflege_anschrift','pflege_geburtsdatum','pflege_telefon','pflege_kasse','pflege_kvnr','person_name','person_anschrift','person_geburtsdatum','person_verhaeltnis','pflegegrade','pflegegrad_seit_angabe','pflegeberatung_kunde','entlastung_jahre','verhinderungspflege','abzug_prozent','aufnahme_notizen'];
+  var erlaubt=['pflege_sig_dataurl','pflege_anschrift','pflege_geburtsdatum','pflege_telefon','pflege_kasse','pflege_kvnr','person_name','person_anschrift','person_geburtsdatum','person_verhaeltnis','pflegegrade','pflegegrad_seit_angabe','pflegeberatung_kunde','entlastung_jahre','verhinderungspflege','abzug_prozent','aufnahme_notizen'];
   var diff=CFForm.geaendert(alt,neu);if(!('abzug_prozent' in alt)&&diff.abzug_prozent==='40')delete diff.abzug_prozent;erlaubt.forEach(function(k){if(k in diff)ch[k]=diff[k]});Object.keys(diff).forEach(function(k){if(/^hilfe\d*_(name|anschrift|geburtsdatum|telefon|sig_dataurl)$/.test(k))ch[k]=diff[k]});
   if(!Object.keys(ch).length){alert('Es wurde nichts geändert.');return}
   var w=CFC.pruefePhasen(ch.pflegegrade||neu.pflegegrade);if(w.length&&!confirm('Ein Datum im Pflegegrad ist ungültig:\n'+w.map(function(x){return x.text}).join('\n')+'\n\nTrotzdem speichern?'))return;
@@ -346,7 +387,7 @@ async function clickupOeffnen(){
   if(r&&r.ok&&r.task_id)window.open('https://app.clickup.com/t/'+encodeURIComponent(r.task_id),'_blank','noopener');else alert((r&&r.message)||'ClickUp-Aufgabe konnte nicht geöffnet werden.');
 }
 async function ladeNotizen(){
-  if(editMode||!$('notesList'))return;
+  if(!$('notesList'))return;
   var r=await CFAPI.call('notes_list',{customer_name:cur.data.pflege_name||''});
   var el=$('notesList');if(!el)return;
   var n=(r&&r.notes)||[];
