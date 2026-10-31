@@ -224,6 +224,7 @@ function renderDetail(){
     h+='<div class="cfPanel"><h2>Pflegegrade</h2>'+pgTabelle(d)+'</div>';
     h+='<div class="cfPanel"><h2>Verhinderungspflege</h2>'+vpTabelle(d)+'</div>';
     if(d.person_name||d.person_anschrift)h+='<div class="cfPanel"><h2>Bevollmächtigte Person / Ansprechpartner</h2><div class="cfDl">'+dl('Name',d.person_name)+dl('Anschrift',d.person_anschrift)+dl('Geburtsdatum',d.person_geburtsdatum)+dl('Verhältnis',d.person_verhaeltnis)+'</div></div>';
+    h+='<div class="cfPanel"><h2>Unterschrift pflegebedürftige Person / Pflegeperson</h2>'+(d.pflege_sig_dataurl?'<img class="sigPreviewImg" alt="Unterschrift" src="'+esc(d.pflege_sig_dataurl)+'">':'<p class="mini">Noch keine Unterschrift.</p>')+'</div>';
     helperPrefixe(d).forEach(function(n){var p=n===1?'hilfe':'hilfe'+n;h+='<div class="cfPanel"><h2>'+(n===1?'Nachbarschaftshilfe':n+'. Nachbarschaftshilfe')+'</h2><div class="cfDl">'+dl('Name',d[p+'_name'])+dl('Anschrift',d[p+'_anschrift'])+dl('Geburtsdatum',d[p+'_geburtsdatum'])+dl('Telefon',d[p+'_telefon'])+'</div>'+(d[p+'_sig_dataurl']?'<img class="sigPreviewImg" alt="Unterschrift" src="'+esc(d[p+'_sig_dataurl'])+'">':'<p class="mini">Noch keine Unterschrift.</p>')+'</div>'});
     h+='<div class="cfPanel" id="pnlCalc"><div class="cfHead"><h2>Berechnung / Nachweis</h2></div>'+
       '<p class="mini">Zukünftig laufend möglich sowie – falls gewünscht – rückwirkend beantragbar, basierend auf den gespeicherten Pflegegrad-Phasen.</p>'+
