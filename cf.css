@@ -168,3 +168,16 @@ input.dt.ungueltig{border-bottom-color:#c0392b;background:#fdecec}
 .embed .inBar,.embed .inHead,.embed .cffoot,.embed #pageTitle{display:none}.embed .inWrap{padding-top:10px}
 
 .cfApp>.cfMain.hidden{display:none!important}
+
+/* Aufnahmen-Zähler im Menü */
+.navBadge{display:inline-block;margin-left:8px;min-width:20px;padding:1px 7px;border-radius:12px;background:#f59e0b;color:#fff;font-size:12px;font-weight:800;text-align:center}
+.kidCopy{cursor:pointer;font-size:12px;color:#4f6a85;border-bottom:1px dotted #9fb3c8}
+.kidCopy:hover{color:var(--navy)}
+/* Bearbeiten: Speichern-Leiste bleibt am unteren Rand sichtbar */
+.kfBar{position:sticky;bottom:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:18px -22px -22px;padding:12px 22px;background:rgba(255,255,255,.96);border-top:1px solid var(--line);border-radius:0 0 20px 20px;backdrop-filter:blur(4px)}
+.kfBarHint{margin-left:auto}
+@media(max-width:700px){.kfBar{margin:18px -14px -14px;padding:10px 14px}.kfBarHint{display:none}.sigArea canvas{height:260px}}
+.hidden{display:none!important}
+/* breitere Ansicht auf großen Bildschirmen: Stammdaten in 3 Spalten */
+.cfMain{max-width:1320px}
+@media(min-width:1500px){.cfDl{grid-template-columns:repeat(3,1fr)}}

@@ -1,5 +1,5 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=15"></head><body>
+<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=17"></head><body>
 
 <div id="loginBox" class="loginWrap hidden"><div class="cfPanel">
   <img src="logo.png" alt="Curafact">
@@ -34,11 +34,14 @@
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
-var customers=[],cur=null,editMode=false,abzugAnzeige=null;
+var customers=[],cur=null,editMode=false,abzugAnzeige=null,editDirty=false;
+function editVerlassenOk(){return !(editMode&&editDirty)||confirm('Es gibt ungespeicherte Änderungen. Wirklich verlassen?')}
+window.addEventListener('beforeunload',function(e){if(editMode&&editDirty){e.preventDefault();e.returnValue=''}});
 document.getElementById('sideNav').innerHTML=cfSide('kunden');
 var rechnerGemountet=false;
 function ansichtVon(href){return href==='rechner.html'?'rechner':(String(href).indexOf('#aufnahmen')>=0?'aufnahmen':'kunden')}
 function zeigeAnsicht(v){
+  if(v!=='kunden'&&!editVerlassenOk())return;
   var k=(v==='kunden');
   document.querySelector('.cfRail').classList.toggle('hidden',!k);$('detail').classList.toggle('hidden',!k);$('viewRechner').classList.toggle('hidden',v!=='rechner');$('viewAufn').classList.toggle('hidden',v!=='aufnahmen');
   document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.classList.toggle('active',ansichtVon(a.getAttribute('href'))===v)});
@@ -63,7 +66,7 @@ $('logoutBtn').onclick=async function(){await CFAPI.logout();cur=null;zeigeLogin
 function starteApp(){
   $('loginBox').classList.add('hidden');$('appBox').classList.remove('hidden');
   $('whoName').textContent=(CFAPI.user&&CFAPI.user.display_name)||'';
-  ladeKunden();
+  ladeKunden();aufnBadgePruefen();
   if(location.hash==='#rechner')zeigeAnsicht('rechner');else if(location.hash==='#aufnahmen')zeigeAnsicht('aufnahmen');
 }
 
@@ -83,7 +86,8 @@ $('custSearch').oninput=renderListe;
 $('custList').onclick=function(e){var b=e.target.closest('.cfCust');if(b)oeffneKunde(b.dataset.f)};
 
 async function oeffneKunde(file){
-  editMode=false;abzugAnzeige=null;
+  if(!editVerlassenOk())return;
+  editMode=false;editDirty=false;abzugAnzeige=null;
   $('detail').innerHTML='<div class="empty">Lade …</div>';
   var r=await CFAPI.call('web_customer',{file:file});
   if(!r||!r.ok){$('detail').innerHTML='<div class="empty">'+esc((r&&r.message)||'Kunde konnte nicht geladen werden.')+'</div>';return}
@@ -93,40 +97,96 @@ async function oeffneKunde(file){
 
 /* ---------- Aufnahmen (alle Fernaufnahmen und Unterschriften, ohne Abholen) ---------- */
 function aufnStatus(x){
-  if(x.imported_file)return {t:'Übernommen',c:'ok'};
-  if(x.is_edit)return {t:x.main_received?(x.draft?'Änderung – Entwurf':'Änderung eingegangen'):'Änderung – Link offen',c:x.main_received&&!x.draft?'wait':'mute'};
-  if(!x.main_received)return {t:'Link offen',c:'mute'};
-  if(x.draft)return {t:'Entwurf (noch nicht abgeschickt)',c:'mute'};
-  return {t:'Eingegangen – wird in Studio übernommen',c:'wait'};
+  if(x.imported_file)return {t:'Übernommen',k:'uebernommen'};
+  if(x.is_edit)return {t:x.main_received?(x.draft?'Änderung – Entwurf':'Änderung eingegangen'):'Änderung – Link offen',k:x.main_received&&!x.draft?'zu':(x.main_received?'entwurf':'leer')};
+  if(!x.main_received)return {t:'Link offen',k:'leer'};
+  if(x.draft)return {t:'Entwurf (noch nicht abgeschickt)',k:'entwurf'};
+  if(/^Mögliches Duplikat/.test(x.note||''))return {t:x.note,k:'zu'};
+  return {t:'Eingegangen – wird in Studio übernommen',k:'zu'};
 }
-function aufnDatum(x){var t=x.submitted_at?Date.parse(x.submitted_at):(x.created_at?x.created_at*1000:0);return t?new Date(t).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}
+function aufnTs(x){return x.submitted_at?Date.parse(x.submitted_at):(x.created_at?x.created_at*1000:0)}
+function aufnDatum(x){var t=aufnTs(x);return t?new Date(t).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}
+var aufnDaten=[],aufnSig=[],aufnFilter={status:'alle',q:'',alte:false};
+var AUFN_ALT_TAGE=7;
+function aufnAlterLeer(x){return aufnStatus(x).k==='leer'&&(Date.now()-aufnTs(x))>AUFN_ALT_TAGE*86400000}
+function kidKopieren(kid,label){return '<span class="kidCopy" role="button" tabindex="0" title="Kunden-ID kopieren" data-kid="'+esc(kid)+'">'+esc(label||('ID '+String(kid).slice(0,8)))+' ⧉</span>'}
+document.addEventListener('click',function(e){
+  var el=e.target.closest&&e.target.closest('.kidCopy');if(!el)return;
+  var t=el.dataset.kid,old=el.textContent;
+  function ok(){el.textContent='kopiert ✓';setTimeout(function(){el.textContent=old},1500)}
+  try{navigator.clipboard.writeText(t).then(ok,function(){window.prompt('Kunden-ID:',t)})}catch(x){window.prompt('Kunden-ID:',t)}
+});
 async function ladeAufnahmen(){
-  var box=$('viewAufn');box.innerHTML='<div class="cfPanel"><h2>Aufnahmen</h2><div class="empty">Lade …</div></div>';
+  var box=$('viewAufn');
+  if(!aufnDaten.length&&!aufnSig.length)box.innerHTML='<div class="cfTop"><div><h1>Aufnahmen</h1></div></div><div class="cfPanel"><div class="empty">Lade …</div></div>';
   var r=await CFAPI.call('intake_list'),r2=await CFAPI.call('signature_list');
-  if(!r||!r.ok){box.innerHTML='<div class="cfPanel"><h2>Aufnahmen</h2><div class="empty">'+esc((r&&r.message)||'Aufnahmen konnten nicht geladen werden.')+'</div></div>';return}
-  var list=(r.sessions||[]).filter(function(x){return !x.nur_mitarbeiter});
-  var h='<div class="cfPanel"><div class="cfHead"><h2>Eingegangene Aufnahmen</h2><div class="actions"><button id="aufnReload">Aktualisieren</button></div></div>'+
-    '<p class="mini">Alle Fernaufnahmen per Link / QR, auch Entwürfe. Studio übernimmt neue Aufnahmen automatisch als Kunde (Hauptakte bleibt auf dem Mac); sie bleiben hier sichtbar.</p>';
+  if(!r||!r.ok){box.innerHTML='<div class="cfTop"><div><h1>Aufnahmen</h1></div></div><div class="cfPanel"><div class="empty">'+esc((r&&r.message)||'Aufnahmen konnten nicht geladen werden.')+'</div></div>';return}
+  aufnDaten=(r.sessions||[]).filter(function(x){return !x.nur_mitarbeiter});
+  aufnSig=(r2&&r2.ok&&r2.signatures)||[];
+  aufnBadge();
+  zeichneAufnahmen();
+}
+function aufnBadge(){
+  var n=aufnDaten.filter(function(x){return x.main_received&&!x.draft&&!x.imported_file}).length;
+  var a=document.querySelector('#sideNav .cfNav a[href$="#aufnahmen"]');if(!a)return;
+  var b=a.querySelector('.navBadge');
+  if(!n){if(b)b.remove();return}
+  if(!b){b=document.createElement('span');b.className='navBadge';a.appendChild(b)}
+  b.textContent=n;b.title=n+' Aufnahme(n) warten auf die Übernahme in Studio';
+}
+function zeichneAufnahmen(){
+  var box=$('viewAufn'),list=aufnDaten.filter(function(x){
+    var st=aufnStatus(x);
+    if(!aufnFilter.alte&&aufnAlterLeer(x))return false;
+    if(aufnFilter.status!=='alle'&&st.k!==aufnFilter.status)return false;
+    var q=aufnFilter.q.trim().toLowerCase();
+    if(q&&String((x.name||'')+' '+(x.kasse||'')+' '+(x.imported_file||'')).toLowerCase().indexOf(q)<0)return false;
+    return true;
+  });
+  var leer=aufnDaten.filter(aufnAlterLeer).length;
+  var h='<div class="cfTop"><div><h1>Aufnahmen</h1><p>Alle Fernaufnahmen per Link / QR, auch Entwürfe und leere Links. Studio übernimmt neue Aufnahmen automatisch als Kunde; sie bleiben hier sichtbar.</p></div><div class="actions"><button id="aufnReload">Aktualisieren</button></div></div>';
+  h+='<div class="cfPanel"><div class="actions" style="margin-bottom:12px"><input class="cfInput" id="aufnQ" placeholder="Name, Kasse oder Akte suchen …" style="max-width:280px" value="'+esc(aufnFilter.q)+'">'+
+    '<select class="cfInput" id="aufnStatusSel" style="max-width:240px">'+[['alle','Alle Status'],['zu','Wartet auf Übernahme'],['entwurf','Entwürfe'],['uebernommen','Übernommen'],['leer','Links ohne Angaben']].map(function(o){return '<option value="'+o[0]+'"'+(aufnFilter.status===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'+
+    '<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="aufnAlte"'+(aufnFilter.alte?' checked':'')+'> Alte leere Links (über '+AUFN_ALT_TAGE+' Tage) zeigen ('+leer+')</label>'+
+    (leer?'<button id="aufnLeerDel">Alte leere Links löschen ('+leer+')</button>':'')+'</div>';
   h+=list.length?'<div class="tablewrap"><table class="cfTable"><thead><tr><th>Name</th><th>Datum</th><th>Status</th><th>Kasse</th><th>Kunde</th><th></th></tr></thead><tbody>'+list.map(function(x){
     var st=aufnStatus(x),dk=x.imported_file?x.imported_file.replace(/\.json$/,'').replace(/_/g,' '):'';
-    return '<tr><td><strong>'+esc(x.name||x.label||'—')+'</strong>'+(x.geburtsdatum?'<br><span class="mini">'+esc(x.geburtsdatum)+'</span>':'')+'</td><td>'+esc(aufnDatum(x))+'</td><td>'+esc(st.t)+'</td><td>'+esc(x.kasse||'')+'</td><td>'+(x.imported_file?'<a href="#" class="aufnOpen" data-f="'+esc(x.imported_file)+'">'+esc(dk)+'</a>':'—')+(x.imported_kunden_id?'<br><span class="mini">ID '+esc(x.imported_kunden_id.slice(0,8))+'</span>':'')+'</td>'+
-      '<td style="white-space:nowrap"><button class="aufnView" data-s="'+esc(x.session)+'"'+(x.main_received?'':' disabled')+'>Ansehen</button> <button class="aufnDel" data-s="'+esc(x.session)+'" data-n="'+esc(x.name||'')+'" data-i="'+(x.imported_file?'1':'')+'">Löschen</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Aufnahmen vorhanden.</div>';
+    return '<tr><td><strong>'+esc(x.name||x.label||'—')+'</strong>'+(x.geburtsdatum?'<br><span class="mini">'+esc(x.geburtsdatum)+'</span>':'')+'</td><td>'+esc(aufnDatum(x))+'</td><td>'+esc(st.t)+'</td><td>'+esc(x.kasse||'')+'</td><td>'+(x.imported_file?'<a href="#" class="aufnOpen" data-f="'+esc(x.imported_file)+'">'+esc(dk)+'</a>':'—')+(x.imported_kunden_id?'<br>'+kidKopieren(x.imported_kunden_id):'')+'</td>'+
+      '<td style="white-space:nowrap"><button class="aufnView" data-s="'+esc(x.session)+'"'+(x.main_received?'':' disabled')+'>Ansehen</button> <button class="aufnDel" data-s="'+esc(x.session)+'" data-n="'+esc(x.name||'')+'" data-i="'+(x.imported_file?'1':'')+'">Löschen</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Aufnahmen für diese Auswahl.</div>';
   h+='<div id="aufnDetail"></div></div>';
-  var sg=(r2&&r2.ok&&r2.signatures)||[];
-  h+='<div class="cfPanel"><div class="cfHead"><h2>Unterschriften per Link</h2></div><p class="mini">Jede Unterschrift hat eine Kennung und ist der Kundenakte (Kunden-ID) zugeordnet, für die der Link erzeugt wurde. Sie bleibt auf dem Server, bis sie in Studio bestätigt wurde.</p>';
+  var sg=aufnSig;
+  h+='<div class="cfPanel"><div class="cfHead"><h2>Unterschriften per Link</h2></div><p class="mini">Jede Unterschrift hat eine Kennung und ist der Kundenakte (Kunden-ID) zugeordnet, für die der Link erzeugt wurde. Sie bleibt bis zu 60 Tage auf dem Server.</p>';
   h+=sg.length?'<div class="tablewrap"><table class="cfTable"><thead><tr><th>Angefordert</th><th>Für</th><th>Rolle / Zweck</th><th>Status</th><th>Kennung</th></tr></thead><tbody>'+sg.map(function(x){
-    return '<tr><td>'+esc(x.created_at?new Date(x.created_at).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—')+'</td><td>'+esc(x.customer_name||x.customer_file||'— (keiner Akte zugeordnet)')+(x.kunden_id?'<br><span class="mini">Kunden-ID '+esc(String(x.kunden_id).slice(0,8))+'</span>':'')+'</td><td>'+esc([x.rolle,x.label].filter(Boolean).join(' · ')||'—')+'</td><td>'+(x.received?(x.fetched_at?'Eingegangen, in Studio abgeholt':'Eingegangen'):'Link offen')+'</td><td class="mini">'+esc(String(x.token).slice(0,8))+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Unterschriften vorhanden.</div>';
+    return '<tr><td>'+esc(x.created_at?new Date(x.created_at).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—')+'</td><td>'+esc(x.customer_name||x.customer_file||'— (keiner Akte zugeordnet)')+(x.kunden_id?'<br>'+kidKopieren(x.kunden_id,'Kunden-ID '+String(x.kunden_id).slice(0,8)):'')+'</td><td>'+esc([x.rolle,x.label].filter(Boolean).join(' · ')||'—')+'</td><td>'+(x.received?(x.fetched_at?'Eingegangen, in Studio abgeholt':'Eingegangen'):'Link offen')+'</td><td class="mini">'+esc(String(x.token).slice(0,8))+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Unterschriften vorhanden.</div>';
   h+='</div>';
+  var hadFocus=document.activeElement&&document.activeElement.id==='aufnQ';
   box.innerHTML=h;
   $('aufnReload').onclick=ladeAufnahmen;
+  $('aufnQ').oninput=function(){aufnFilter.q=this.value;var pos=this.selectionStart;zeichneAufnahmen();var q=$('aufnQ');q.focus();try{q.setSelectionRange(pos,pos)}catch(e){}};
+  $('aufnStatusSel').onchange=function(){aufnFilter.status=this.value;zeichneAufnahmen()};
+  $('aufnAlte').onchange=function(){aufnFilter.alte=this.checked;zeichneAufnahmen()};
+  if($('aufnLeerDel'))$('aufnLeerDel').onclick=async function(){
+    var alt=aufnDaten.filter(aufnAlterLeer);
+    if(!confirm(alt.length+' leere Link(s) ohne Angaben, älter als '+AUFN_ALT_TAGE+' Tage, löschen?\n\nEs gehen keine Kundendaten verloren.'))return;
+    this.disabled=true;
+    for(var i=0;i<alt.length;i++)await CFAPI.call('intake_delete',{session:alt[i].session});
+    ladeAufnahmen();
+  };
   box.querySelectorAll('.aufnOpen').forEach(function(a){a.onclick=function(e){e.preventDefault();zeigeAnsicht('kunden');oeffneKunde(a.dataset.f)}});
   box.querySelectorAll('.aufnView').forEach(function(b){b.onclick=function(){aufnAnsehen(b.dataset.s)}});
   box.querySelectorAll('.aufnDel').forEach(function(b){b.onclick=async function(){
     var wer=b.dataset.n||'diese Aufnahme';
-    if(!confirm(wer+': Aufnahme wirklich löschen?'+(b.dataset.i?'\n\nDie Kundenakte in Studio bleibt unverändert.':'\n\nDie Angaben wurden noch nicht in Studio übernommen und gehen verloren.')))return;
+    if(!confirm(wer+': Aufnahme wirklich löschen?'+(b.dataset.i?'\n\nDie Kundenakte in Studio bleibt unverändert.':'\n\nFalls die Angaben noch nicht in Studio übernommen wurden, gehen sie verloren.')))return;
     var r=await CFAPI.call('intake_delete',{session:b.dataset.s});if(r&&r.ok)ladeAufnahmen();else alert((r&&r.message)||'Löschen fehlgeschlagen.');
   }});
 }
+/* Zähler im Menü: regelmäßig prüfen, solange die Seite sichtbar ist */
+async function aufnBadgePruefen(){
+  if(document.hidden||!CFAPI||!CFAPI.user)return;
+  var r=await CFAPI.call('intake_list');if(!r||!r.ok)return;
+  aufnDaten=(r.sessions||[]).filter(function(x){return !x.nur_mitarbeiter});aufnBadge();
+}
+setInterval(aufnBadgePruefen,60000);
 async function aufnAnsehen(session){
   var el=$('aufnDetail');el.innerHTML='<div class="empty">Lade …</div>';
   var r=await CFAPI.call('intake_get',{session:session});
@@ -155,7 +215,7 @@ function vpTabelle(d){
 function helperPrefixe(d){var n=new Set();Object.keys(d).forEach(function(k){var m=k.match(/^hilfe(\d*)_/);if(m)n.add(m[1]===''?1:+m[1])});return Array.from(n).sort(function(a,b){return a-b})}
 function renderDetail(){
   var d=cur.data,warn=CFC.pruefePhasen(d.pflegegrade);
-  var h='<div class="cfTop"><div><h1>'+esc(d.pflege_name||'Kunde')+'</h1><p>'+esc([d.pflege_kasse,d.pflege_kvnr].filter(Boolean).join(' · '))+'</p>'+(d.kunden_id?'<p class="mini" title="'+esc(d.kunden_id)+'">Kunden-ID '+esc(String(d.kunden_id).slice(0,8))+'</p>':'')+'</div><div class="actions">'+
+  var h='<div class="cfTop"><div><h1>'+esc(d.pflege_name||'Kunde')+'</h1><p>'+esc([d.pflege_kasse,d.pflege_kvnr].filter(Boolean).join(' · '))+'</p>'+(d.kunden_id?'<p class="mini">'+kidKopieren(d.kunden_id,'Kunden-ID '+String(d.kunden_id).slice(0,8))+'</p>':'')+'</div><div class="actions">'+
     (editMode?'<button class="primaryBtn" id="btnSave">Speichern</button><button id="btnCancel">Abbrechen</button>':'<button class="primaryBtn" id="btnEdit">Bearbeiten</button><button id="btnClickup">In ClickUp öffnen</button><button id="btnFaEdit">Fernaufnahme (Änderungen)</button><button id="btnAufnDruck" title="Ausgefüllten Aufnahmebogen drucken / als PDF sichern">Aufnahmebogen drucken</button>')+'</div></div>';
   if(cur.pending||d._portal_edit)h+='<div class="note">Im Web geändert'+(d._portal_edit?' von '+esc(d._portal_edit.by||'')+' am '+esc(new Date(d._portal_edit.at).toLocaleString('de-DE')):'')+(cur.pending?' – '+cur.pending+' Änderung(en) noch nicht in Studio übernommen (Studio zeigt sie beim nächsten Start an).':'')+'</div>';
   if(warn.length&&!editMode)h+='<div class="note noteBad"><b>Datum prüfen:</b> '+warn.map(function(w){return esc('Pflegegrad-Zeile '+(w.zeile+1)+' ('+(w.feld==='von'?'Seit':'Bis')+'): '+w.text+(w.vorschlag?' Vorschlag: '+w.vorschlag:''))}).join('<br>')+' <button id="btnFix" style="margin-left:8px">Jetzt korrigieren</button></div>';
@@ -189,7 +249,7 @@ function helferSlotHtml(n,pre,kannEntfernen){
     '<div class="kfF" style="grid-column:span 6"><label>Telefon</label><input id="h'+n+'_telefon" type="tel" value="'+esc(pre.telefon||'')+'"></div></div>'+
     '<div class="sigArea" style="margin-top:12px"><label style="font-size:12px;font-weight:700;color:#4f6a85">Unterschrift (mit Finger oder Stift im Feld, oder Datei wählen)</label>'+
     '<div class="sigFileRow" style="margin-top:6px"><button type="button" id="sigfilebtn_h'+n+'">Datei wählen</button><input type="file" accept="image/*" id="sigfile_h'+n+'" class="hidden"><span class="fileStatusStyle" id="sigfilestatus_h'+n+'">Keine Datei ausgewählt</span></div>'+
-    '<img id="sigpreview_h'+n+'" class="sigPreviewImg hidden" alt="Unterschrift"><canvas id="sig_h'+n+'"></canvas><div class="sigbar"><button type="button" id="sigclear_h'+n+'">Löschen</button></div></div></div>';
+    '<img id="sigpreview_h'+n+'" class="sigPreviewImg hidden" alt="Unterschrift"><div id="sigdraw_h'+n+'"><canvas id="sig_h'+n+'"></canvas></div><div class="sigbar"><button type="button" id="sigredo_h'+n+'" class="hidden">Neu unterschreiben</button><button type="button" id="sigclear_h'+n+'">Unterschrift entfernen</button></div></div></div>';
 }
 function helferEditHtml(d){
   var vorh=helperPrefixe(d).filter(function(n){var p=helferPrefix(n);return d[p+'_name']||d[p+'_anschrift']||d[p+'_sig_dataurl']||d[p+'_geburtsdatum']||d[p+'_telefon']});
@@ -199,7 +259,12 @@ function helferEditHtml(d){
 }
 function helferSlotBinden(slot,sigAlt){
   var n=+slot.dataset.n;editSigs[n]=setupSigInput('h'+n);
-  if(sigAlt)editSigs[n].setDataUrl(sigAlt);
+  if(sigAlt){
+    editSigs[n].setDataUrl(sigAlt);
+    var dr=$('sigdraw_h'+n),redo=$('sigredo_h'+n);dr.classList.add('hidden');redo.classList.remove('hidden');
+    redo.onclick=function(){dr.classList.remove('hidden');redo.classList.add('hidden')};
+    $('sigclear_h'+n).addEventListener('click',function(){dr.classList.remove('hidden');redo.classList.add('hidden')});
+  }
   var rm=slot.querySelector('.hRemove');if(rm)rm.onclick=function(){if(!confirm('Diese Nachbarschaftshilfe samt Unterschrift entfernen? Gilt erst nach „Speichern“.'))return;slot.dataset.removed='1';slot.style.display='none'};
 }
 function helferEditBinden(d){
@@ -236,7 +301,7 @@ function editForm(d){
     '<h3 class="kfH" id="e5">5. Entlastungsbetrag (§ 45b SGB XI) <small>– je Jahr</small></h3>'+CFForm.entHtml(d,pg.form)+
     '<h3 class="kfH" id="e6">6. Verhinderungspflege / Kurzzeitpflege <small>– je Jahr</small></h3>'+CFForm.vpHtml(d)+
     '<h3 class="kfH" id="e9">7. Berechnung</h3>'+CFForm.abzugHtml(d)+
-    '<div class="actions" style="margin-top:18px"><button type="button" class="primaryBtn" id="btnSave2">Speichern</button><button type="button" id="btnCancel2">Abbrechen</button></div></form>';
+    '<div class="actions kfBar"><button type="button" class="primaryBtn" id="btnSave2">Speichern</button><button type="button" id="btnCancel2">Abbrechen</button><span class="mini kfBarHint" id="kfBarHint">Änderungen werden erst mit „Speichern“ übernommen.</span></div></form>';
 }
 function zeigeAuswertung(){
   var d=cur.data,inp=$('abzIn');if(!inp)return;
@@ -244,9 +309,9 @@ function zeigeAuswertung(){
 }
 function bindDetail(){
   var d=cur.data;
-  if($('btnEdit'))$('btnEdit').onclick=function(){editMode=true;renderDetail();var root=$('kfRoot');if(CFC.pruefePhasen(d.pflegegrade).length)root.dataset.pgDirty='1';CFForm.bind(root);helferEditBinden(d);root.querySelectorAll('.wizardSteps [data-jump]').forEach(function(s){s.onclick=function(){var t=$(s.dataset.jump);if(t)t.scrollIntoView({behavior:'smooth',block:'start'})}})};
+  if($('btnEdit'))$('btnEdit').onclick=function(){editMode=true;renderDetail();var root=$('kfRoot');if(CFC.pruefePhasen(d.pflegegrade).length)root.dataset.pgDirty='1';CFForm.bind(root);helferEditBinden(d);editDirty=false;['input','change','pointerup'].forEach(function(ev){root.addEventListener(ev,function(){editDirty=true})});root.querySelectorAll('.wizardSteps [data-jump]').forEach(function(s){s.onclick=function(){var t=$(s.dataset.jump);if(t)t.scrollIntoView({behavior:'smooth',block:'start'})}})};
   if($('btnFix'))$('btnFix').onclick=function(){$('btnEdit').click()};
-  ['btnCancel','btnCancel2'].forEach(function(id){if($(id))$(id).onclick=function(){editMode=false;renderDetail();ladeNotizen()}});
+  ['btnCancel','btnCancel2'].forEach(function(id){if($(id))$(id).onclick=function(){if(!editVerlassenOk())return;editMode=false;editDirty=false;renderDetail();ladeNotizen()}});
   ['btnSave','btnSave2'].forEach(function(id){if($(id))$(id).onclick=speichern});
   if($('btnClickup'))$('btnClickup').onclick=clickupOeffnen;
   if($('btnAufnDruck'))$('btnAufnDruck').onclick=function(){CFAufnahmeDruck.drucken(d)};
@@ -272,7 +337,7 @@ async function speichern(){
   document.querySelectorAll('#btnSave,#btnSave2').forEach(function(b){b.disabled=true});
   var r=await CFAPI.call('web_customer_save',{file:cur.file,changes:ch});
   if(!r||!r.ok){alert((r&&r.message)||'Speichern fehlgeschlagen.');document.querySelectorAll('#btnSave,#btnSave2').forEach(function(b){b.disabled=false});return}
-  editMode=false;await ladeKunden();await oeffneKunde(cur.file);
+  editMode=false;editDirty=false;await ladeKunden();await oeffneKunde(cur.file);
 }
 
 /* ---------- ClickUp, Notizen ---------- */
