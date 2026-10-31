@@ -78,24 +78,28 @@ var CFAufnahmeDruck=(function(){
     '.foot{position:absolute;left:20mm;right:20mm;bottom:8mm;border-top:1px solid #cfe9ee;padding-top:2mm;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:6mm;font-size:6.5pt;color:#66788a;line-height:1.35}.foot b{color:#0F3F7A}';
 
   function html(d,logoUrl){
-    var foot=function(n){return '<div class="foot"><div><b>Curafact PflegeAbrechnung Direkt UG (haftungsbeschränkt)</b><br>Berliner Str. 36<br>33378 Rheda-Wiedenbrück</div><div>Tel. 05242 182649-0<br>kontakt@curafact.de<br>curafact.de</div><div>Geschäftsführer: Önder Sülüngür<br>Amtsgericht Gütersloh, HRB 14607<br>IK 590537042<span style="float:right">Seite '+n+' von 2</span></div></div>'};
+    var foot=function(n){return '<div class="foot"><div><b>Curafact PflegeAbrechnung Direkt UG (haftungsbeschränkt)</b><br>Berliner Str. 36<br>33378 Rheda-Wiedenbrück</div><div>Tel. 05242 182649-0<br>kontakt@curafact.de<br>curafact.de</div><div>Geschäftsführer: Önder Sülüngür<br>Amtsgericht Gütersloh, HRB 14607<br>IK 590537042<span style="float:right">Seite '+n+' von 3</span></div></div>'};
     var kopf='<div class="bar"></div><div class="logo">'+(logoUrl?'<img src="'+esc(logoUrl)+'" alt="Curafact">':'')+'</div>';
     var hs=helfer(d);
     var p1=kopf+'<h1>Neukunden-Aufnahmebogen</h1><p class="sub">Ausgefüllt aus der Kundenakte'+(d.pflege_name?' – '+esc(d.pflege_name):'')+'. Gedruckt am '+new Date().toLocaleDateString('de-DE')+'.</p>'+
       sec(1,'Pflegebedürftige Person','','<div class="grid">'+f('Name, Vorname',d.pflege_name,8)+f('Geburtsdatum',d.pflege_geburtsdatum,4)+f('Anschrift (Straße, PLZ, Ort)',d.pflege_anschrift,12)+f('Telefon',d.pflege_telefon,4)+f('Pflegekasse',d.pflege_kasse,8)+f('Versichertennummer',d.pflege_kvnr,6)+'</div>')+
       sec(2,'Pflegegrad','(Monat und Jahr genügen)',pflegegradTeil(d))+
-      sec(3,'Pflegeperson','(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)','<div class="grid">'+f('Name, Vorname',d.person_name,8)+f('Geburtsdatum',d.person_geburtsdatum,4)+f('Anschrift (Straße, PLZ, Ort)',d.person_anschrift,8)+f('Verhältnis (z. B. Ehefrau, Sohn)',d.person_verhaeltnis,4)+'</div>')+
-      sec(4,'Nachbarschaftshilfe','',(hs.length?hs:[{}]).map(function(h,i){return (hs.length>1?'<div class="h2name">'+(i+1)+'. Nachbarschaftshilfe</div>':'')+'<div class="grid">'+f('Name, Vorname',h.name,8)+f('Geburtsdatum',h.geb,4)+f('Anschrift (Straße, PLZ, Ort)',h.anschrift,8)+f('Telefon',h.tel,4)+'</div>'}).join(''))+
+      sec(3,'Entlastungsbetrag (§ 45b SGB XI)','– bitte je Jahr ankreuzen',jahrTab(entlastungWerte(d)))+
       foot(1);
     var sigPflege=d.pflege_sig_dataurl||'';
     var p2=kopf+
-      sec(5,'Entlastungsbetrag (§ 45b SGB XI)','– bitte je Jahr ankreuzen',jahrTab(entlastungWerte(d)))+
+      sec(4,'Pflegeperson','(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)','<div class="grid">'+f('Name, Vorname',d.person_name,8)+f('Geburtsdatum',d.person_geburtsdatum,4)+f('Anschrift (Straße, PLZ, Ort)',d.person_anschrift,8)+f('Verhältnis (z. B. Ehefrau, Sohn)',d.person_verhaeltnis,4)+'</div>')+
+      sec(5,'Nachbarschaftshilfe','',(hs.length?hs:[{}]).map(function(h,i){return (hs.length>1?'<div class="h2name">'+(i+1)+'. Nachbarschaftshilfe</div>':'')+'<div class="grid">'+f('Name, Vorname',h.name,8)+f('Geburtsdatum',h.geb,4)+f('Anschrift (Straße, PLZ, Ort)',h.anschrift,8)+f('Telefon',h.tel,4)+'</div>'}).join(''))+
       sec(6,'Verhinderungspflege / Kurzzeitpflege','– bitte je Jahr ankreuzen',jahrTab(vpWerte(d)))+
-      sec(7,'Zusätzliche Notizen / Informationen','','<div class="notiz">'+esc(d.aufnahme_notizen||'')+'</div>')+
-      sec(8,'Unterschriften','','<div class="sigs">'+sigBox(sigPflege,'Unterschrift pflegebedürftige Person / Pflegeperson')+sigBox(hs.length?hs[0].sig:'','Unterschrift Nachbarschaftshilfe')+
-        '</div>')+
       foot(2);
-    return '<div class="page">'+p1+'</div><div class="page">'+p2+'</div>';
+    var sigList=sigBox(sigPflege,'Unterschrift pflegebedürftige Person / Pflegeperson')+(hs.length?hs:[{}]).map(function(h,i){return sigBox(h.sig||'','Unterschrift '+(hs.length>1?(i+1)+'. ':'')+'Nachbarschaftshilfe')}).join('');
+    var abz=String(d.abzug_prozent||'').trim();
+    var p3=kopf+
+      sec(7,'Zusätzliche Notizen / Informationen','','<div class="notiz">'+esc(d.aufnahme_notizen||'')+'</div>')+
+      sec(8,'Unterschriften','','<div class="sigs">'+sigList+'</div>')+
+      sec(9,'Berechnung','(erstellen wir aus Ihren Angaben)','<div class="pg"><span class="pgo"><span class="cb'+(d.rueckwirkend_beantragen?' on':'')+'">'+(d.rueckwirkend_beantragen?'&#10003;':'')+'</span> Rückwirkend beantragen</span></div><div class="grid">'+f('Abzug in %',abz,4)+'</div>')+
+      foot(3);
+    return '<div class="page">'+p1+'</div><div class="page">'+p2+'</div><div class="page">'+p3+'</div>';
   }
 
   function drucken(d){
