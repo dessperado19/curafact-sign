@@ -165,8 +165,27 @@ function sammle(){
   return data;
 }
 
+/* Zwischenstand automatisch sichern (Entwurf): nichts geht verloren, wenn die Seite zugeht; ein abgeschicktes Formular wird nie überschrieben */
+var abgeschickt=false,entwurfTimer=null,entwurfLetzter='';
+function entwurfPlanen(){
+  if(abgeschickt||!SESSION)return;
+  clearTimeout(entwurfTimer);
+  entwurfTimer=setTimeout(async function(){
+    try{
+      if(abgeschickt||!$('f_pflege_name'))return;
+      var d=sammle(),sig=window.mainSig?window.mainSig.getDataUrl():'';
+      var hat=(d.pflege_name||'').trim()||(d.pflege_anschrift||'').trim()||(d.pflege_kvnr||'').trim();
+      if(!hat)return;
+      var stand=JSON.stringify([d,sig.length]);
+      if(stand===entwurfLetzter)return;
+      var r=await senden({type:'intake',session:SESSION,role:'main',data:d,dataurl:sig,draft:true});
+      if(r.ok&&!abgeschickt){entwurfLetzter=stand;var m=$('msg');if(m&&!m.textContent)m.textContent='Zwischenstand gespeichert.';setTimeout(function(){var m2=$('msg');if(m2&&m2.textContent==='Zwischenstand gespeichert.')m2.textContent=''},2500)}
+    }catch(e){}
+  },7000);
+}
 function startMain(){
   $('mainForm').classList.remove('hidden');
+  ['input','change','pointerup'].forEach(function(ev){$('mainForm').addEventListener(ev,entwurfPlanen)});
   setzeSeite(LABEL?('Aufnahme – '+LABEL):'Aufnahme','Bitte die Felder ausfüllen, die du zum jetzigen Zeitpunkt weißt – der Rest kann leer bleiben.');
   var d={};
   $('boxPerson').innerHTML='<div class="kfGrid">'+
@@ -191,7 +210,7 @@ function startMain(){
     var bad=document.querySelector('input.dt.ungueltig');if(bad&&!confirm('Ein Datum sieht ungültig aus. Trotzdem senden?'))return;
     msg.textContent='Wird gesendet …';$('submitBtn').disabled=true;
     var r=await senden({type:'intake',session:SESSION,role:'main',data:sammle(),dataurl:window.mainSig.getDataUrl()}).catch(function(){return {ok:false,status:0}});
-    if(r.ok){msg.textContent='Danke! Die Angaben wurden übertragen. Dieses Fenster kann geschlossen werden.'}
+    if(r.ok){abgeschickt=true;msg.textContent='Danke! Die Angaben wurden übertragen. Dieses Fenster kann geschlossen werden.'}
     else{msg.textContent='Fehler beim Senden ('+r.status+'). Bitte noch einmal versuchen.';$('submitBtn').disabled=false}
   };
 }

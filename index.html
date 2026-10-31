@@ -20,6 +20,7 @@
   </aside>
   <main class="cfMain" id="detail"><div class="empty">Bitte links einen Kunden auswählen.</div></main>
   <main class="cfMain hidden" id="viewRechner" style="max-width:1100px;flex:1"></main>
+  <main class="cfMain hidden" id="viewAufn" style="max-width:1100px;flex:1"></main>
 </div>
 
 <div id="modal" class="modalOverlay hidden"><div class="modalBox">
@@ -36,13 +37,16 @@ var esc=CFC.esc;
 var customers=[],cur=null,editMode=false,abzugAnzeige=null;
 document.getElementById('sideNav').innerHTML=cfSide('kunden');
 var rechnerGemountet=false;
+function ansichtVon(href){return href==='rechner.html'?'rechner':(String(href).indexOf('#aufnahmen')>=0?'aufnahmen':'kunden')}
 function zeigeAnsicht(v){
-  var r=(v==='rechner');
-  document.querySelector('.cfRail').classList.toggle('hidden',r);$('detail').classList.toggle('hidden',r);$('viewRechner').classList.toggle('hidden',!r);
-  document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.classList.toggle('active',a.getAttribute('href')===(r?'rechner.html':'index.html'))});
-  if(r&&!rechnerGemountet){rechnerGemountet=true;CFRechner.mount($('viewRechner'))}
+  var k=(v==='kunden');
+  document.querySelector('.cfRail').classList.toggle('hidden',!k);$('detail').classList.toggle('hidden',!k);$('viewRechner').classList.toggle('hidden',v!=='rechner');$('viewAufn').classList.toggle('hidden',v!=='aufnahmen');
+  document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.classList.toggle('active',ansichtVon(a.getAttribute('href'))===v)});
+  if(v==='rechner'&&!rechnerGemountet){rechnerGemountet=true;CFRechner.mount($('viewRechner'))}
+  if(v==='aufnahmen')ladeAufnahmen();
 }
-document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();zeigeAnsicht(a.getAttribute('href')==='rechner.html'?'rechner':'kunden')})});
+(function(){var nav=document.querySelector('#sideNav .cfNav'),a=document.createElement('a');a.href='index.html#aufnahmen';a.textContent='Aufnahmen';nav.insertBefore(a,nav.children[1]||null)})();
+document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();zeigeAnsicht(ansichtVon(a.getAttribute('href')))})});
 (function(){var nav=document.querySelector('#sideNav .cfNav'),b=document.createElement('button');b.id='faNewBtn';b.type='button';b.textContent='+ Neuer Kunde (Link / QR)';nav.insertBefore(b,nav.children[1]||null);var q=document.createElement('button');q.id='faPdfBtn';q.type='button';q.textContent='Aufnahmebogen (PDF)';q.title='Leeren Neukunden-Aufnahmebogen zum Ausdrucken öffnen';q.onclick=function(){window.open('Neukunden-Aufnahmebogen.pdf','_blank')};nav.insertBefore(q,b.nextSibling)})();
 
 /* ---------- Anmeldung ---------- */
@@ -60,7 +64,7 @@ function starteApp(){
   $('loginBox').classList.add('hidden');$('appBox').classList.remove('hidden');
   $('whoName').textContent=(CFAPI.user&&CFAPI.user.display_name)||'';
   ladeKunden();
-  if(location.hash==='#rechner')zeigeAnsicht('rechner');
+  if(location.hash==='#rechner')zeigeAnsicht('rechner');else if(location.hash==='#aufnahmen')zeigeAnsicht('aufnahmen');
 }
 
 /* ---------- Kundenliste ---------- */
@@ -87,6 +91,52 @@ async function oeffneKunde(file){
   renderListe();renderDetail();ladeNotizen();
 }
 
+/* ---------- Aufnahmen (alle Fernaufnahmen und Unterschriften, ohne Abholen) ---------- */
+function aufnStatus(x){
+  if(x.imported_file)return {t:'Übernommen',c:'ok'};
+  if(x.is_edit)return {t:x.main_received?(x.draft?'Änderung – Entwurf':'Änderung eingegangen'):'Änderung – Link offen',c:x.main_received&&!x.draft?'wait':'mute'};
+  if(!x.main_received)return {t:'Link offen',c:'mute'};
+  if(x.draft)return {t:'Entwurf (noch nicht abgeschickt)',c:'mute'};
+  return {t:'Eingegangen – wird in Studio übernommen',c:'wait'};
+}
+function aufnDatum(x){var t=x.submitted_at?Date.parse(x.submitted_at):(x.created_at?x.created_at*1000:0);return t?new Date(t).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}
+async function ladeAufnahmen(){
+  var box=$('viewAufn');box.innerHTML='<div class="cfPanel"><h2>Aufnahmen</h2><div class="empty">Lade …</div></div>';
+  var r=await CFAPI.call('intake_list'),r2=await CFAPI.call('signature_list');
+  if(!r||!r.ok){box.innerHTML='<div class="cfPanel"><h2>Aufnahmen</h2><div class="empty">'+esc((r&&r.message)||'Aufnahmen konnten nicht geladen werden.')+'</div></div>';return}
+  var list=(r.sessions||[]).filter(function(x){return !x.nur_mitarbeiter});
+  var h='<div class="cfPanel"><div class="cfHead"><h2>Eingegangene Aufnahmen</h2><div class="actions"><button id="aufnReload">Aktualisieren</button></div></div>'+
+    '<p class="mini">Alle Fernaufnahmen per Link / QR, auch Entwürfe. Studio übernimmt neue Aufnahmen automatisch als Kunde (Hauptakte bleibt auf dem Mac); sie bleiben hier sichtbar.</p>';
+  h+=list.length?'<div class="tablewrap"><table class="cfTable"><thead><tr><th>Name</th><th>Datum</th><th>Status</th><th>Kasse</th><th>Kunde</th><th></th></tr></thead><tbody>'+list.map(function(x){
+    var st=aufnStatus(x),dk=x.imported_file?x.imported_file.replace(/\.json$/,'').replace(/_/g,' '):'';
+    return '<tr><td><strong>'+esc(x.name||x.label||'—')+'</strong>'+(x.geburtsdatum?'<br><span class="mini">'+esc(x.geburtsdatum)+'</span>':'')+'</td><td>'+esc(aufnDatum(x))+'</td><td>'+esc(st.t)+'</td><td>'+esc(x.kasse||'')+'</td><td>'+(x.imported_file?'<a href="#" class="aufnOpen" data-f="'+esc(x.imported_file)+'">'+esc(dk)+'</a>':'—')+(x.imported_kunden_id?'<br><span class="mini">ID '+esc(x.imported_kunden_id.slice(0,8))+'</span>':'')+'</td>'+
+      '<td style="white-space:nowrap"><button class="aufnView" data-s="'+esc(x.session)+'"'+(x.main_received?'':' disabled')+'>Ansehen</button> <button class="aufnDel" data-s="'+esc(x.session)+'" data-n="'+esc(x.name||'')+'" data-i="'+(x.imported_file?'1':'')+'">Löschen</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Aufnahmen vorhanden.</div>';
+  h+='<div id="aufnDetail"></div></div>';
+  var sg=(r2&&r2.ok&&r2.signatures)||[];
+  h+='<div class="cfPanel"><div class="cfHead"><h2>Unterschriften per Link</h2></div><p class="mini">Jede Unterschrift hat eine Kennung und ist der Kundenakte (Kunden-ID) zugeordnet, für die der Link erzeugt wurde. Sie bleibt auf dem Server, bis sie in Studio bestätigt wurde.</p>';
+  h+=sg.length?'<div class="tablewrap"><table class="cfTable"><thead><tr><th>Angefordert</th><th>Für</th><th>Rolle / Zweck</th><th>Status</th><th>Kennung</th></tr></thead><tbody>'+sg.map(function(x){
+    return '<tr><td>'+esc(x.created_at?new Date(x.created_at).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—')+'</td><td>'+esc(x.customer_name||x.customer_file||'— (keiner Akte zugeordnet)')+(x.kunden_id?'<br><span class="mini">Kunden-ID '+esc(String(x.kunden_id).slice(0,8))+'</span>':'')+'</td><td>'+esc([x.rolle,x.label].filter(Boolean).join(' · ')||'—')+'</td><td>'+(x.received?(x.fetched_at?'Eingegangen, in Studio abgeholt':'Eingegangen'):'Link offen')+'</td><td class="mini">'+esc(String(x.token).slice(0,8))+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Unterschriften vorhanden.</div>';
+  h+='</div>';
+  box.innerHTML=h;
+  $('aufnReload').onclick=ladeAufnahmen;
+  box.querySelectorAll('.aufnOpen').forEach(function(a){a.onclick=function(e){e.preventDefault();zeigeAnsicht('kunden');oeffneKunde(a.dataset.f)}});
+  box.querySelectorAll('.aufnView').forEach(function(b){b.onclick=function(){aufnAnsehen(b.dataset.s)}});
+  box.querySelectorAll('.aufnDel').forEach(function(b){b.onclick=async function(){
+    var wer=b.dataset.n||'diese Aufnahme';
+    if(!confirm(wer+': Aufnahme wirklich löschen?'+(b.dataset.i?'\n\nDie Kundenakte in Studio bleibt unverändert.':'\n\nDie Angaben wurden noch nicht in Studio übernommen und gehen verloren.')))return;
+    var r=await CFAPI.call('intake_delete',{session:b.dataset.s});if(r&&r.ok)ladeAufnahmen();else alert((r&&r.message)||'Löschen fehlgeschlagen.');
+  }});
+}
+async function aufnAnsehen(session){
+  var el=$('aufnDetail');el.innerHTML='<div class="empty">Lade …</div>';
+  var r=await CFAPI.call('intake_get',{session:session});
+  if(!r||!r.ok||!r.main){el.innerHTML='<div class="empty">Keine Angaben vorhanden.</div>';return}
+  var d=r.main.data||{},pg=(Array.isArray(d.pflegegrade)?d.pflegegrade:[]).map(function(x){return 'PG '+x.stufe+' ab '+(x.von||'?')+(x.bis?' bis '+x.bis:'')}).join(', ');
+  var hs=(d.nachbarschaftshilfen||[]).map(function(x){return (x.hilfe_name||'—')+(x.hilfe_sig_dataurl?' (unterschrieben)':'')}).join(', ');
+  var rows=(r.helpers||[]);
+  el.innerHTML='<h3 style="margin:16px 0 6px">'+esc(d.pflege_name||'Aufnahme')+(r.main.draft?' <span class="mini">(Entwurf)</span>':'')+'</h3><div class="cfDl">'+dl('Geburtsdatum',d.pflege_geburtsdatum)+dl('Anschrift',d.pflege_anschrift)+dl('Telefon',d.pflege_telefon)+dl('Kasse',d.pflege_kasse)+dl('Vers.-Nr.',d.pflege_kvnr)+dl('Pflegegrade',pg)+dl('Pflegeperson',d.person_name)+dl('Nachbarschaftshilfe',hs||rows.map(function(x){return (x.data&&x.data.hilfe_name)||''}).filter(Boolean).join(', '))+dl('Unterschrift Kunde',r.main.dataurl?'vorhanden':'')+dl('Anmerkungen',d.anmerkungen)+'</div>';
+}
+
 /* ---------- Detailansicht ---------- */
 function dl(label,val){return '<div><label>'+label+'</label><span>'+(val?esc(val):'—')+'</span></div>'}
 function pgTabelle(d){
@@ -105,7 +155,7 @@ function vpTabelle(d){
 function helperPrefixe(d){var n=new Set();Object.keys(d).forEach(function(k){var m=k.match(/^hilfe(\d*)_/);if(m)n.add(m[1]===''?1:+m[1])});return Array.from(n).sort(function(a,b){return a-b})}
 function renderDetail(){
   var d=cur.data,warn=CFC.pruefePhasen(d.pflegegrade);
-  var h='<div class="cfTop"><div><h1>'+esc(d.pflege_name||'Kunde')+'</h1><p>'+esc([d.pflege_kasse,d.pflege_kvnr].filter(Boolean).join(' · '))+'</p></div><div class="actions">'+
+  var h='<div class="cfTop"><div><h1>'+esc(d.pflege_name||'Kunde')+'</h1><p>'+esc([d.pflege_kasse,d.pflege_kvnr].filter(Boolean).join(' · '))+'</p>'+(d.kunden_id?'<p class="mini" title="'+esc(d.kunden_id)+'">Kunden-ID '+esc(String(d.kunden_id).slice(0,8))+'</p>':'')+'</div><div class="actions">'+
     (editMode?'<button class="primaryBtn" id="btnSave">Speichern</button><button id="btnCancel">Abbrechen</button>':'<button class="primaryBtn" id="btnEdit">Bearbeiten</button><button id="btnClickup">In ClickUp öffnen</button><button id="btnFaEdit">Fernaufnahme (Änderungen)</button><button id="btnAufnDruck" title="Ausgefüllten Aufnahmebogen drucken / als PDF sichern">Aufnahmebogen drucken</button>')+'</div></div>';
   if(cur.pending||d._portal_edit)h+='<div class="note">Im Web geändert'+(d._portal_edit?' von '+esc(d._portal_edit.by||'')+' am '+esc(new Date(d._portal_edit.at).toLocaleString('de-DE')):'')+(cur.pending?' – '+cur.pending+' Änderung(en) noch nicht in Studio übernommen (Studio zeigt sie beim nächsten Start an).':'')+'</div>';
   if(warn.length&&!editMode)h+='<div class="note noteBad"><b>Datum prüfen:</b> '+warn.map(function(w){return esc('Pflegegrad-Zeile '+(w.zeile+1)+' ('+(w.feld==='von'?'Seit':'Bis')+'): '+w.text+(w.vorschlag?' Vorschlag: '+w.vorschlag:''))}).join('<br>')+' <button id="btnFix" style="margin-left:8px">Jetzt korrigieren</button></div>';
@@ -279,7 +329,7 @@ async function neuerKunde(){
   if(!r||!r.ok){$('detail').innerHTML='<div class="note noteBad">Aufnahme konnte nicht gestartet werden: '+esc((r&&(r.message||('Status '+r.http_status)))||'keine Antwort')+'</div>';return}
   var base=location.href.replace(/[?#].*$/,'').replace(/[^\/]*$/,'');
   var q='intake.html?s='+encodeURIComponent(r.session)+'&l='+encodeURIComponent('Neuer Kunde');
-  $('detail').innerHTML='<div class="cfTop"><div><h1>Neuer Kunde – Aufnahme</h1><p>Hier direkt ausfüllen und absenden. Die Angaben erscheinen danach in Studio unter „Fernaufnahme“ und werden dort als Kunde angelegt. Soll der Kunde oder ein Angehöriger es selbst ausfüllen, nutze die Fernaufnahme per Link / QR.</p></div>'+
+  $('detail').innerHTML='<div class="cfTop"><div><h1>Neuer Kunde – Aufnahme</h1><p>Hier direkt ausfüllen und absenden. Die Angaben bleiben unter „Aufnahmen“ sichtbar und werden von Studio automatisch als Kunde übernommen. Soll der Kunde oder ein Angehöriger es selbst ausfüllen, nutze die Fernaufnahme per Link / QR.</p></div>'+
     '<div class="actions"><button class="primaryBtn" id="btnNkFern">Fernaufnahme per Link / QR</button><button id="btnNkClose">Schließen</button></div></div>'+
     '<iframe id="nkFrame" title="Aufnahme" src="'+esc(q+'&embed=1')+'" style="width:100%;height:calc(100vh - 170px);min-height:560px;border:1px solid var(--line);border-radius:18px;background:#eef4f9"></iframe>';
   $('btnNkFern').onclick=function(){startFernaufnahmeZeigen('Neuer Kunde',null,r)};
