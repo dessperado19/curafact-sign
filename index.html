@@ -438,7 +438,8 @@ async function neuerKunde(){
   $('detail').innerHTML='<div class="cfTop"><div><h1>Neuer Kunde – Aufnahme</h1><p>Hier direkt ausfüllen und absenden. Die Angaben bleiben unter „Aufnahmen“ sichtbar und werden von Studio automatisch als Kunde übernommen. Soll der Kunde oder ein Angehöriger es selbst ausfüllen, nutze die Fernaufnahme per Link / QR.</p></div>'+
     '<div class="actions"><button class="primaryBtn" id="btnNkFern">Fernaufnahme per Link / QR</button><button id="btnNkClose">Schließen</button></div></div>'+
     '<iframe id="nkFrame" title="Aufnahme" src="'+esc(q+'&embed=1')+'" style="width:100%;height:calc(100vh - 170px);min-height:560px;border:1px solid var(--line);border-radius:18px;background:#eef4f9"></iframe>';
-  $('btnNkFern').onclick=function(){startFernaufnahmeZeigen('Neuer Kunde',null,r)};
+  /* Eigene Sitzung fuer Link/QR: sonst teilen sich Formular und Link dieselbe Aufnahme und die zweite Person ueberschreibt die erste */
+  $('btnNkFern').onclick=function(){startFernaufnahme('Neuer Kunde',null)};
   $('btnNkClose').onclick=function(){$('detail').innerHTML='<div class="empty">Bitte links einen Kunden auswählen.</div>'};
 }
 
