@@ -36,8 +36,8 @@ var CFMa=(function(){
       var bereiche=istUser?'<div class="maBoxen" data-user="'+esc(u.username)+'">'+boxen('',aktiv,false)+'</div>'+(alle?'<div class="mini">Bisher keine Einschränkung (alles sichtbar).</div>':''):'<span class="mini">Admin-Konten sehen immer alles.</span>';
       var kannReset=istUser||istSuper()||self,kannSchalten=!self&&(istUser||istSuper());
       return '<tr class="'+(u.active?'':'off')+'"><td><b>'+esc(u.display_name||u.username)+'</b>'+(self?' <span class="badge">Du</span>':'')+'<br><span class="mini">'+esc(u.username)+(u.created_at?' · angelegt '+esc(datum(u.created_at)):'')+'</span></td>'+
-        '<td>'+esc(ROLLE[u.role]||u.role)+'</td><td>'+(u.active?'<span class="badge">aktiv</span>':'<span class="badge warn">deaktiviert</span>')+'</td><td>'+bereiche+'</td>'+
-        '<td class="maAct">'+(kannReset?'<button type="button" data-reset="'+esc(u.username)+'">Neuer QR-Code</button>':'')+(kannSchalten?'<button type="button" class="'+(u.active?'dangerBtn':'')+'" data-active="'+esc(u.username)+'" data-to="'+(u.active?'0':'1')+'">'+(u.active?'Deaktivieren':'Aktivieren')+'</button>':'')+'</td></tr>';
+        '<td>'+esc(ROLLE[u.role]||u.role)+'</td><td>'+(u.active?'<span class="badge">aktiv</span>':'<span class="badge warn">deaktiviert</span>')+(u.gesperrt?' <span class="badge warn" title="Zu viele falsche Codes – Anmeldung vorübergehend gesperrt">gesperrt</span>':'')+'</td><td>'+bereiche+'</td>'+
+        '<td class="maAct">'+(u.gesperrt?'<button type="button" class="primaryBtn" data-unlock="'+esc(u.username)+'">Sperre aufheben</button>':'')+(kannReset?'<button type="button" data-reset="'+esc(u.username)+'">Neuer QR-Code</button>':'')+(kannSchalten?'<button type="button" class="'+(u.active?'dangerBtn':'')+'" data-active="'+esc(u.username)+'" data-to="'+(u.active?'0':'1')+'">'+(u.active?'Deaktivieren':'Aktivieren')+'</button>':'')+'</td></tr>';
     }).join('')+'</tbody></table></div>';
   }
   async function laden(){
@@ -83,6 +83,12 @@ var CFMa=(function(){
       b.disabled=true;var r=await CFAPI.call('users_reset_totp',{username:b.dataset.reset});b.disabled=false;
       if(!r||!r.ok){meldung((r&&r.message)||'Neuer Code konnte nicht erzeugt werden.',true);return}
       qrModal('Neuer QR-Code',r);return;
+    }
+    b=e.target.closest('[data-unlock]');
+    if(b){
+      b.disabled=true;var ru=await CFAPI.call('users_unlock',{username:b.dataset.unlock});
+      if(!ru||!ru.ok){meldung((ru&&ru.message)||'Sperre konnte nicht aufgehoben werden.',true);b.disabled=false;return}
+      meldung('Sperre für '+b.dataset.unlock+' aufgehoben – die Person kann sich sofort wieder anmelden.');laden();return;
     }
     b=e.target.closest('[data-active]');
     if(b){
