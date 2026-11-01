@@ -76,9 +76,10 @@ var CFRechner=(function(){
       var t=new Date(),ds=String(t.getDate()).padStart(2,'0')+'.'+String(t.getMonth()+1).padStart(2,'0')+'.'+t.getFullYear();
       var pct=Math.max(0,Math.min(100,r.abzugPct||0)),kunde=100-pct,pctTxt=String(r.abzugPct).replace('.',',');
       var css='<style>'+
-        '@page{size:A4;margin:14mm 15mm}'+
-        '.rcP{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Helvetica,Arial,sans-serif;color:#172033;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:0}'+
+        '@page{size:A4;margin:0}'+  /* Rand 0: Chrome druckt dann keine eigene Kopf-/Fußzeile (Datum, Titel, Adresse, Seitenzahl) */
+        '.rcP{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Helvetica,Arial,sans-serif;color:#172033;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:14mm 15mm}'+
         '.rcP *{box-sizing:border-box}'+
+        '.page{padding:0!important}'+
         '.rcP .kopf{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #14213A;padding-bottom:10px;margin-bottom:18px}'+
         '.rcP .kopf img{height:34px}.rcP .kopf span{font-size:12px;color:#5C687D}'+
         '.rcP .eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1496A8;margin:0 0 4px}'+
