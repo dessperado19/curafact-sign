@@ -25,8 +25,17 @@ var CFAPI=(function(){
     if(r&&r.ok&&r.token){save({token:r.token,user:r.user});return r}
     return r;
   }
+  /* Bereiche der Web-Ansicht, die für dieses Konto freigegeben sind (Admins: alles; ohne Liste: alles) */
+  function istAdmin(){var u=session&&session.user;return !!u&&(u.role==='admin'||u.role==='superadmin')}
+  function darf(k){
+    var u=session&&session.user;if(!u)return false;
+    if(k==='mitarbeiter')return istAdmin();
+    if(istAdmin()||!Array.isArray(u.zugriff))return true;
+    return u.zugriff.indexOf(k)>=0;
+  }
+  function setUser(u){if(!session||!u)return;session.user=u;try{localStorage.setItem(SKEY,JSON.stringify(session))}catch(e){}}
   async function logout(){try{await call('logout')}catch(e){}clear()}
-  return {load:load,login:login,logout:logout,call:call,post:post,get user(){return session&&session.user},get session(){return session},BASE:BASE,KEY:KEY,onExpired:null};
+  return {load:load,login:login,logout:logout,call:call,post:post,darf:darf,istAdmin:istAdmin,setUser:setUser,get user(){return session&&session.user},get session(){return session},BASE:BASE,KEY:KEY,onExpired:null};
 })();
 /* gemeinsame Seitenleiste */
 function cfSide(active,extra){

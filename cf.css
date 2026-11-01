@@ -282,3 +282,17 @@ input[type=checkbox]{border:1.5px solid #9FB0C6;border-radius:5px}
 @media(max-width:760px){.rcTiles{grid-template-columns:1fr}.rcTile strong{font-size:26px}}
 
 .rcTile.rcOur{border-color:var(--navy);background:#E4EAF2}
+
+/* ===== Mitarbeiter-Verwaltung (Web-Ansicht) ===== */
+.maForm{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:640px}
+.maForm label,.maLbl{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+.maBoxen{display:flex;flex-wrap:wrap;gap:8px}
+.maChk{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:7px 14px 7px 10px;background:#fff;font-size:13.5px;font-weight:600;color:var(--navy);cursor:pointer;margin:0;text-transform:none;letter-spacing:0}
+.maChk:hover{border-color:var(--teal)}
+.maChk:has(input:checked){border-color:var(--teal);background:#E7F2F5}
+.maChk input{margin:0}
+.maMsg{border-radius:8px;padding:10px 14px;margin:0 0 14px;font-weight:600;font-size:14px}
+.maMsg.ok{background:#E3F2EA;color:#1F6B43}.maMsg.err{background:#FBE7E7;color:#B4332F}
+.maAct{white-space:nowrap;text-align:right}.maAct button{margin-left:6px;padding:7px 12px;font-size:13px}
+.cfTable tr.off td{opacity:.55}
+@media(max-width:700px){.maForm{grid-template-columns:1fr}.maAct{white-space:normal}}

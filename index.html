@@ -1,5 +1,5 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=20"></head><body>
+<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=21"></head><body>
 
 <div id="loginBox" class="loginWrap hidden"><div class="cfPanel">
   <img src="logo.png" alt="Curafact">
@@ -21,6 +21,7 @@
   <main class="cfMain" id="detail"><div class="empty">Bitte links einen Kunden auswählen.</div></main>
   <main class="cfMain hidden" id="viewRechner" style="max-width:1100px;flex:1"></main>
   <main class="cfMain hidden" id="viewAufn" style="max-width:1100px;flex:1"></main>
+  <main class="cfMain hidden" id="viewMa" style="max-width:1100px;flex:1"></main>
 </div>
 
 <div id="modal" class="modalOverlay hidden"><div class="modalBox">
@@ -30,7 +31,7 @@
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="cf-aufnahme-druck.js?v=2"></script><script src="kfc.js"></script><script src="cf-calc.js?v=15"></script><script src="cf-form.js?v=15"></script><script src="cf-sig.js?v=1"></script><script src="cf-api.js?v=15"></script><script src="cf-rechner.js?v=5"></script>
+<script src="cf-aufnahme-druck.js?v=2"></script><script src="kfc.js"></script><script src="cf-calc.js?v=15"></script><script src="cf-form.js?v=15"></script><script src="cf-sig.js?v=1"></script><script src="cf-api.js?v=16"></script><script src="cf-mitarbeiter.js?v=1"></script><script src="cf-rechner.js?v=5"></script>
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
@@ -39,14 +40,28 @@ function editVerlassenOk(){return !(editMode&&editDirty)||confirm('Es gibt unges
 window.addEventListener('beforeunload',function(e){if(editMode&&editDirty){e.preventDefault();e.returnValue=''}});
 document.getElementById('sideNav').innerHTML=cfSide('kunden');
 var rechnerGemountet=false;
-function ansichtVon(href){return href==='rechner.html'?'rechner':(String(href).indexOf('#aufnahmen')>=0?'aufnahmen':'kunden')}
+function ansichtVon(href){return href==='rechner.html'?'rechner':(String(href).indexOf('#aufnahmen')>=0?'aufnahmen':(String(href).indexOf('#mitarbeiter')>=0?'mitarbeiter':'kunden'))}
 function zeigeAnsicht(v){
+  if(!CFAPI.darf(v))v=startAnsicht();
   if(v!=='kunden'&&!editVerlassenOk())return;
   var k=(v==='kunden');
-  document.querySelector('.cfRail').classList.toggle('hidden',!k);$('detail').classList.toggle('hidden',!k);$('viewRechner').classList.toggle('hidden',v!=='rechner');$('viewAufn').classList.toggle('hidden',v!=='aufnahmen');
+  document.querySelector('.cfRail').classList.toggle('hidden',!k);$('detail').classList.toggle('hidden',!k);$('viewRechner').classList.toggle('hidden',v!=='rechner');$('viewAufn').classList.toggle('hidden',v!=='aufnahmen');$('viewMa').classList.toggle('hidden',v!=='mitarbeiter');
   document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.classList.toggle('active',ansichtVon(a.getAttribute('href'))===v)});
   if(v==='rechner'&&!rechnerGemountet){rechnerGemountet=true;CFRechner.mount($('viewRechner'))}
   if(v==='aufnahmen')ladeAufnahmen();
+  if(v==='mitarbeiter'){if(!maGemountet){maGemountet=true;CFMa.mount($('viewMa'))}else CFMa.reload()}
+}
+var maGemountet=false;
+/* Erste erlaubte Ansicht (Reihenfolge: Kunden, Rechner, Aufnahmen, Mitarbeiter) */
+function startAnsicht(){var o=['kunden','rechner','aufnahmen','mitarbeiter'];for(var i=0;i<o.length;i++)if(CFAPI.darf(o[i]))return o[i];return 'rechner'}
+/* Menüpunkte nach Freigabe ein-/ausblenden (der Server prüft zusätzlich bei jeder Anfrage) */
+function rechteAnwenden(){
+  var nav=document.querySelector('#sideNav .cfNav');if(!nav)return;
+  if(CFAPI.istAdmin()&&!$('maNavLink')){var a=document.createElement('a');a.id='maNavLink';a.href='index.html#mitarbeiter';a.textContent='Mitarbeiter';a.addEventListener('click',function(e){e.preventDefault();zeigeAnsicht('mitarbeiter')});nav.appendChild(a)}
+  [].forEach.call(nav.querySelectorAll('a,button'),function(el){
+    var k=el.id==='faNewBtn'?'neuer_kunde':(el.id==='faPdfBtn'?'aufnahmebogen':(el.id==='maNavLink'?'mitarbeiter':ansichtVon(el.getAttribute('href')||'')));
+    el.classList.toggle('hidden',!CFAPI.darf(k));
+  });
 }
 (function(){var nav=document.querySelector('#sideNav .cfNav'),a=document.createElement('a');a.href='index.html#aufnahmen';a.textContent='Aufnahmen';nav.insertBefore(a,nav.children[1]||null)})();
 document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();zeigeAnsicht(ansichtVon(a.getAttribute('href')))})});
@@ -66,9 +81,15 @@ $('logoutBtn').onclick=async function(){await CFAPI.logout();cur=null;zeigeLogin
 function starteApp(){
   $('loginBox').classList.add('hidden');$('appBox').classList.remove('hidden');
   $('whoName').textContent=(CFAPI.user&&CFAPI.user.display_name)||'';
-  ladeKunden();aufnBadgePruefen();
-  if(location.hash==='#rechner')zeigeAnsicht('rechner');else if(location.hash==='#aufnahmen')zeigeAnsicht('aufnahmen');
+  rechteAnwenden();
+  if(CFAPI.darf('kunden'))ladeKunden();
+  if(CFAPI.darf('aufnahmen'))aufnBadgePruefen();
+  var wunsch=location.hash==='#rechner'?'rechner':(location.hash==='#aufnahmen'?'aufnahmen':(location.hash==='#mitarbeiter'?'mitarbeiter':startAnsicht()));
+  zeigeAnsicht(wunsch);
+  /* aktuelle Freigaben vom Server holen (Änderungen durch den Admin wirken so ohne neue Anmeldung) */
+  CFAPI.call('me').then(function(r){if(r&&r.ok&&r.user){CFAPI.setUser(r.user);rechteAnwenden();if(!CFAPI.darf(ansichtAktuell()))zeigeAnsicht(startAnsicht());else if(CFAPI.darf('kunden')&&!customers.length)ladeKunden()}});
 }
+function ansichtAktuell(){if(!$('viewRechner').classList.contains('hidden'))return 'rechner';if(!$('viewAufn').classList.contains('hidden'))return 'aufnahmen';if(!$('viewMa').classList.contains('hidden'))return 'mitarbeiter';return 'kunden'}
 
 /* ---------- Kundenliste ---------- */
 async function ladeKunden(){
