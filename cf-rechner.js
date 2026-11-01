@@ -103,10 +103,9 @@ var CFRechner=(function(){
         '.rcP .hinweis{margin:18px 0 0;font-size:10.5px;line-height:1.5;color:#5C687D}'+
         '</style>';
       return css+'<div class="rcP">'+
-        '<div class="kopf"><img src="logo.png" alt="Curafact"><span>Stand: '+ds+'</span></div>'+
         '<p class="eyebrow">Ihre Übersicht</p>'+
         '<h1>'+(st.name?esc(st.name):'Rückwirkende Ansprüche')+'</h1>'+
-        '<p class="sub">Pflegegrad '+esc(st.stufe)+' · rückwirkend ab '+esc(von())+'</p>'+
+        '<p class="sub">Pflegegrad '+esc(st.stufe)+' · rückwirkend ab '+esc(von())+' · Stand: '+ds+'</p>'+
         '<div class="kacheln">'+
           '<div class="kachel"><small>Rückwirkend insgesamt</small><strong>'+eur2(r.brutto)+'</strong></div>'+
           '<div class="kachel kunde"><small>'+pz(kunde)+'</small><strong>'+eur2(r.netto)+'</strong></div>'+
