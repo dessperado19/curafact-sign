@@ -50,6 +50,7 @@ var CFRechner=(function(){
   function mountEinfach(el){
     var K=KFC,C=CFC,F=CFForm,esc=C.esc,JAHRE=F.jahre();
     var st={name:'',stufe:'',jahr:'',monat:'1',entOffen:{},vpOffen:{},pct:'40'};
+    function pz(x){return String(Math.round(x*100)/100).replace('.',',')+' %'}
     function eur2(n){return Number(n||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'}
     function startJahr(){return st.jahr==='frueher'?JAHRE[0]:(parseInt(st.jahr,10)||0)}
     function von(){if(!st.jahr)return '';if(st.jahr==='frueher')return '01.01.'+JAHRE[0];return '01.'+String(st.monat).padStart(2,'0')+'.'+st.jahr}
@@ -88,6 +89,7 @@ var CFRechner=(function(){
         '.rcP .kachel small{display:block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#5C687D;margin:0 0 6px}'+
         '.rcP .kachel strong{display:block;font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:600;font-size:23px;letter-spacing:-.01em;color:#11284B}'+
         '.rcP .kachel.kunde{border-color:#1496A8;background:#E7F2F5}.rcP .kachel.kunde strong{color:#0B6F7C}'+
+        '.rcP .kachel.unser{border-color:#11284B;background:#E4EAF2}'+
         '.rcP .balken{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid #D8E0EB;margin:0 0 20px}'+
         '.rcP .balken i,.rcP .balken b{display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;font-size:11px;color:#fff;white-space:nowrap}'+
         '.rcP .balken i{background:#1496A8}.rcP .balken b{background:#11284B}'+
@@ -106,10 +108,10 @@ var CFRechner=(function(){
         '<p class="sub">Pflegegrad '+esc(st.stufe)+' · rückwirkend ab '+esc(von())+'</p>'+
         '<div class="kacheln">'+
           '<div class="kachel"><small>Rückwirkend insgesamt</small><strong>'+eur2(r.brutto)+'</strong></div>'+
-          '<div class="kachel kunde"><small>Für Sie</small><strong>'+eur2(r.netto)+'</strong></div>'+
-          '<div class="kachel"><small>Unser Anteil ('+esc(pctTxt)+' %)</small><strong>'+eur2(r.abzug)+'</strong></div>'+
+          '<div class="kachel kunde"><small>'+pz(kunde)+'</small><strong>'+eur2(r.netto)+'</strong></div>'+
+          '<div class="kachel unser"><small>'+pz(pct)+'</small><strong>'+eur2(r.abzug)+'</strong></div>'+
         '</div>'+
-        '<div class="balken"><i style="width:'+kunde+'%">'+(kunde>=14?'Sie '+Math.round(kunde)+' %':'')+'</i><b style="width:'+pct+'%">'+(pct>=14?Math.round(pct)+' %':'')+'</b></div>'+
+        '<div class="balken"><i style="width:'+kunde+'%">'+(kunde>=14?Math.round(kunde)+' %':'')+'</i><b style="width:'+pct+'%">'+(pct>=14?Math.round(pct)+' %':'')+'</b></div>'+
         '<h2>Aufteilung nach Jahren</h2>'+
         '<table><thead><tr><th>Jahr</th><th class="num">Pflegegrad (Umwandlung / Entlastung)</th><th class="num">Verhinderungspflege</th><th class="num">Summe</th></tr></thead><tbody>'+
           zeilen.map(function(z){return '<tr><td><b>'+z.jahr+'</b></td><td class="num">'+eur2(z.pg)+'</td><td class="num">'+eur2(z.vp)+'</td><td class="num"><b>'+eur2(z.sum)+'</b></td></tr>'}).join('')+
@@ -148,10 +150,10 @@ var CFRechner=(function(){
       box.innerHTML='<h2>Ergebnis</h2>'+
         '<div class="rcTiles">'+
           '<div class="rcTile"><small>Rückwirkend insgesamt</small><strong>'+eur2(r.brutto)+'</strong></div>'+
-          '<div class="rcTile rcOwn"><small>Für den Kunden</small><strong>'+eur2(r.netto)+'</strong></div>'+
-          '<div class="rcTile"><small>Unser Anteil ('+esc(String(r.abzugPct).replace('.',','))+' %)</small><strong>'+eur2(r.abzug)+'</strong></div>'+
+          '<div class="rcTile rcOwn"><small>'+pz(kunde)+'</small><strong>'+eur2(r.netto)+'</strong></div>'+
+          '<div class="rcTile rcOur"><small>'+pz(pct)+'</small><strong>'+eur2(r.abzug)+'</strong></div>'+
         '</div>'+
-        '<div class="rcBar" aria-hidden="true"><i style="width:'+kunde+'%">'+(kunde>=14?'Kunde '+Math.round(kunde)+' %':'')+'</i><b style="width:'+pct+'%">'+(pct>=14?Math.round(pct)+' %':'')+'</b></div>'+
+        '<div class="rcBar" aria-hidden="true"><i style="width:'+kunde+'%">'+(kunde>=14?Math.round(kunde)+' %':'')+'</i><b style="width:'+pct+'%">'+(pct>=14?Math.round(pct)+' %':'')+'</b></div>'+
         '<div class="tablewrap"><table class="cfTable"><thead><tr><th>Jahr</th><th class="num">Pflegegrad (Umwandlung / Entlastung)</th><th class="num">Verhinderungspflege</th><th class="num">Summe</th></tr></thead><tbody>'+
           (zeilen.length?zeilen.map(function(z){return '<tr><td><b>'+z.jahr+'</b></td><td class="num">'+eur2(z.pg)+'</td><td class="num">'+eur2(z.vp)+'</td><td class="num"><b>'+eur2(z.sum)+'</b></td></tr>'}).join(''):'<tr><td colspan="4" class="mini">Für diese Angaben ergibt sich kein rückwirkender Betrag.</td></tr>')+
         '</tbody></table></div>'+

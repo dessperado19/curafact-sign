@@ -280,3 +280,5 @@ input[type=checkbox]{border:1.5px solid #9FB0C6;border-radius:5px}
 .rcBar b{background:var(--navy)}
 .cfTable .num,.cfTable th.num{text-align:right;font-variant-numeric:tabular-nums}
 @media(max-width:760px){.rcTiles{grid-template-columns:1fr}.rcTile strong{font-size:26px}}
+
+.rcTile.rcOur{border-color:var(--navy);background:#E4EAF2}
