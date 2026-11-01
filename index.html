@@ -122,6 +122,7 @@ async function oeffneKunde(file){
 
 /* ---------- Aufnahmen (alle Fernaufnahmen und Unterschriften, ohne Abholen) ---------- */
 function aufnStatus(x){
+  if(x.mehrfach)return {t:'Sammel-Link'+(x.mehrfach_anzahl?(' · '+x.mehrfach_anzahl+' erfasst'):' · noch niemand erfasst'),k:'entwurf'};
   if(x.imported_file)return {t:'Übernommen',k:'uebernommen'};
   if(x.is_edit)return {t:x.main_received?(x.draft?'Änderung – Entwurf':'Änderung eingegangen'):'Änderung – Link offen',k:x.main_received&&!x.draft?'zu':(x.main_received?'entwurf':'leer')};
   if(!x.main_received)return {t:'Link offen',k:'leer'};
@@ -135,7 +136,7 @@ var aufnDaten=[],aufnSig=[],aufnFilter={status:'alle',q:'',leer:false};
 /* Leere Links (Link offen, nichts eingetragen): in der Liste standardmäßig ausgeblendet, nach AUFN_LEER_TAGE Tagen automatisch gelöscht */
 var AUFN_LEER_TAGE=3;
 function aufnIstLeer(x){return aufnStatus(x).k==='leer'}
-function aufnLeerAbgelaufen(x){var t=aufnTs(x);return aufnIstLeer(x)&&!(x.helper_indexes&&x.helper_indexes.length)&&t>0&&(Date.now()-t)>AUFN_LEER_TAGE*86400000}
+function aufnLeerAbgelaufen(x){var t=aufnTs(x);return !x.mehrfach&&aufnIstLeer(x)&&!(x.helper_indexes&&x.helper_indexes.length)&&t>0&&(Date.now()-t)>AUFN_LEER_TAGE*86400000}
 var aufnAufraeumenLaeuft=false;
 async function aufnAufraeumen(){
   if(aufnAufraeumenLaeuft)return 0;
@@ -486,18 +487,18 @@ function prefillPayload(d){
     pflegegrade:(Array.isArray(d.pflegegrade)?d.pflegegrade:[]),entlastung_jahre:d.entlastung_jahre||{},verhinderungspflege:Array.isArray(d.verhinderungspflege)?d.verhinderungspflege:[],nachbarschaftshilfen:helfer(d)};
 }
 function faMeldung(t){var e=$('faMsg');if(!e){e=document.createElement('div');e.id='faMsg';e.className='note noteBad';$('faNewBtn').parentNode.insertBefore(e,$('faNewBtn'))}e.textContent=t;e.classList.toggle('hidden',!t)}
-async function startFernaufnahme(label,customer){
+async function startFernaufnahme(label,customer,mehrfach){
   faMeldung('');
   var r;
-  try{r=await CFAPI.call('intake_create',{label:label,customer:customer||null})}catch(e){faMeldung('Fernaufnahme: Verbindung fehlgeschlagen ('+e+').');return}
+  try{r=await CFAPI.call('intake_create',mehrfach?{label:label,customer:null,mehrfach:true}:{label:label,customer:customer||null})}catch(e){faMeldung('Fernaufnahme: Verbindung fehlgeschlagen ('+e+').');return}
   if(!r||!r.ok){faMeldung('Fernaufnahme konnte nicht gestartet werden: '+((r&&(r.message||('Status '+r.http_status)))||'keine Antwort')+'.');return}
-  try{ startFernaufnahmeZeigen(label,customer,r) }catch(e){faMeldung('Fernaufnahme: Anzeige fehlgeschlagen ('+e+').')}
+  try{ startFernaufnahmeZeigen(label,customer,r,mehrfach) }catch(e){faMeldung('Fernaufnahme: Anzeige fehlgeschlagen ('+e+').')}
 }
-function startFernaufnahmeZeigen(label,customer,r){
+function startFernaufnahmeZeigen(label,customer,r,mehrfach){
   var base=location.href.replace(/[?#].*$/,'').replace(/[^\/]*$/,'');
   var url=base+'intake.html?s='+encodeURIComponent(r.session)+'&l='+encodeURIComponent(label||'Aufnahme');
-  $('mTitle').textContent=customer?'Fernaufnahme – Änderungen':'Fernaufnahme – neuer Kunde';
-  $('mLabel').textContent=(label&&label!=='Neuer Kunde')?('Für: '+label+' – Angaben werden in Studio diesem Kunden zugeordnet.'):'Link/QR-Code an den Kunden schicken. Die Angaben erscheinen danach in Studio.';
+  $('mTitle').textContent=mehrfach?'Sammel-Link – mehrere Personen':(customer?'Fernaufnahme – Änderungen':'Fernaufnahme – neuer Kunde');
+  $('mLabel').textContent=mehrfach?'Ein Link für mehrere Personen (z. B. Mutter und Vater): Nach dem Absenden erscheint ein leeres Formular für die nächste Person. Jede Person wird als eigener Kunde unter „Aufnahmen“ gespeichert. Der Link ist 7 Tage gültig.':(label&&label!=='Neuer Kunde')?('Für: '+label+' – Angaben werden in Studio diesem Kunden zugeordnet.'):'Link/QR-Code an den Kunden schicken. Die Angaben erscheinen danach in Studio.';
   $('mUrl').textContent=url;$('mQr').innerHTML='';
   try{new QRCode($('mQr'),{text:url,width:200,height:200,correctLevel:QRCode.CorrectLevel.M})}catch(e){}
   $('mOpen').onclick=function(){window.open(url,'_blank','noopener')};
@@ -514,10 +515,11 @@ async function neuerKunde(){
   var base=location.href.replace(/[?#].*$/,'').replace(/[^\/]*$/,'');
   var q='intake.html?s='+encodeURIComponent(r.session)+'&l='+encodeURIComponent('Neuer Kunde');
   $('detail').innerHTML='<div class="cfTop"><div><h1>Neuer Kunde – Aufnahme</h1><p>Hier direkt ausfüllen und absenden. Die Angaben bleiben unter „Aufnahmen“ sichtbar und werden von Studio automatisch als Kunde übernommen. Soll der Kunde oder ein Angehöriger es selbst ausfüllen, nutze die Fernaufnahme per Link / QR.</p></div>'+
-    '<div class="actions"><button class="primaryBtn" id="btnNkFern">Fernaufnahme per Link / QR</button><button id="btnNkClose">Schließen</button></div></div>'+
+    '<div class="actions"><button class="primaryBtn" id="btnNkFern">Fernaufnahme per Link / QR</button><button id="btnNkSammel" title="Ein Link für mehrere Personen, z. B. Mutter und Vater">Sammel-Link (mehrere Personen)</button><button id="btnNkClose">Schließen</button></div></div>'+
     '<iframe id="nkFrame" title="Aufnahme" src="'+esc(q+'&embed=1')+'" style="width:100%;height:calc(100vh - 170px);min-height:560px;border:1px solid var(--line);border-radius:18px;background:#eef4f9"></iframe>';
   /* Eigene Sitzung fuer Link/QR: sonst teilen sich Formular und Link dieselbe Aufnahme und die zweite Person ueberschreibt die erste */
   $('btnNkFern').onclick=function(){startFernaufnahme('Neuer Kunde',null)};
+  $('btnNkSammel').onclick=function(){startFernaufnahme('Neuer Kunde',null,true)};
   $('btnNkClose').onclick=function(){$('detail').innerHTML='<div class="empty">Bitte links einen Kunden auswählen.</div>'};
 }
 

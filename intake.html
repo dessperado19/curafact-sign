@@ -1,6 +1,7 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curafact – Aufnahme</title><link rel="stylesheet" href="cf.css?v=22"></head><body style="background:#eef4f9">
+<title>Curafact – Aufnahme</title><link rel="stylesheet" href="cf.css?v=22"><style>.sammel .shareSlotBtn,.sammel .linkResult,.sammel #s5+p.mini{display:none!important}</style>
+</head><body style="background:#eef4f9">
 <div class="inBar"></div><div class="inHead"><img src="logo.png" alt="Curafact"></div>
 <div class="inWrap">
   <h1 id="pageTitle">Aufnahme</h1>
@@ -8,6 +9,7 @@
   <div id="noSession" class="note noteBad hidden">Dieser Link ist ungültig oder abgelaufen. Bitte einen neuen Link anfordern.</div>
 
   <div id="mainForm" class="hidden">
+    <p class="note hidden" id="sammelNote"></p>
     <p class="note hidden" id="prefillNote">Ein paar Angaben sind schon ausgefüllt – bitte prüfen und bei Bedarf korrigieren.</p>
     <div class="cfPanel kf" id="kfRoot">
       <div class="wizardSteps"><span data-jump="s1">1 Person</span><span data-jump="s2">2 Pflegegrad</span><span data-jump="s3">3 Entlastung</span><span data-jump="s4">4 Pflegeperson</span><span data-jump="s5">5 Nachbarschaftshilfe</span><span data-jump="s6">6 Verhinderungspflege</span><span data-jump="s7">7 Notizen</span><span data-jump="s8">8 Unterschriften</span><span data-jump="s9">9 Berechnung</span></div>
@@ -125,7 +127,7 @@ function addHelperSlot(pre){
 /* ---------- Angaben der Nachbarschaftshilfen live übernehmen ---------- */
 var helperStand={},pollTimer=null;
 async function pruefeHelfer(){
-  if(document.hidden||!SESSION)return;
+  if(document.hidden||!SESSION||SAMMEL)return;
   try{
     var res=await fetch(API+'/studio-api',{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({action:'intake_session_get',session:SESSION,k:HKEY,helpers:true})});
     var r=await res.json();if(!r.ok||!r.helpers)return;
@@ -149,7 +151,7 @@ function starteHelferPolling(){if(!pollTimer){pollTimer=setInterval(pruefeHelfer
 async function senden(body){
   var res=await fetch(API+'/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   var j=null;try{j=await res.json()}catch(e){j={ok:false}}
-  return {ok:res.ok&&j&&j.ok,status:res.status};
+  return {ok:res.ok&&j&&j.ok,status:res.status,neu_session:j&&j.neu_session,anzahl:j&&j.anzahl,message:j&&j.message};
 }
 var vorbelegung={};
 function sammle(){
@@ -168,9 +170,9 @@ function sammle(){
 }
 
 /* Zwischenstand automatisch sichern (Entwurf): nichts geht verloren, wenn die Seite zugeht; ein abgeschicktes Formular wird nie überschrieben */
-var abgeschickt=false,entwurfTimer=null,entwurfLetzter='';
+var abgeschickt=false,entwurfTimer=null,entwurfLetzter='',SAMMEL=false;
 function entwurfPlanen(){
-  if(abgeschickt||!SESSION)return;
+  if(abgeschickt||!SESSION||SAMMEL)return;
   clearTimeout(entwurfTimer);
   entwurfTimer=setTimeout(async function(){
     try{
@@ -212,9 +214,31 @@ function startMain(){
     var bad=document.querySelector('input.dt.ungueltig');if(bad&&!confirm('Ein Datum sieht ungültig aus. Trotzdem senden?'))return;
     msg.textContent='Wird gesendet …';$('submitBtn').disabled=true;
     var r=await senden({type:'intake',session:SESSION,role:'main',data:sammle(),dataurl:window.mainSig.getDataUrl()}).catch(function(){return {ok:false,status:0}});
-    if(r.ok){abgeschickt=true;msg.textContent='Danke! Die Angaben wurden übertragen. Dieses Fenster kann geschlossen werden.'}
-    else{msg.textContent='Fehler beim Senden ('+r.status+'). Bitte noch einmal versuchen.';$('submitBtn').disabled=false}
+    if(r.ok&&r.neu_session){abgeschickt=true;sammelErfolg(r.anzahl,($('f_pflege_name').value||'').trim())}
+    else if(r.ok){abgeschickt=true;msg.textContent='Danke! Die Angaben wurden übertragen. Dieses Fenster kann geschlossen werden.'}
+    else{msg.textContent=(r.message&&r.status>=400&&r.status!==500?r.message+' ':'')+'Fehler beim Senden ('+r.status+'). '+(r.status===410||r.status===429?'':'Bitte noch einmal versuchen.');$('submitBtn').disabled=!!(r.status===410||r.status===429)}
   };
+}
+/* ---------- Sammel-Link: mehrere Personen über denselben Link ---------- */
+function sammelErfolg(anzahl,name){
+  var n=0;try{n=parseInt(sessionStorage.getItem('cf_sammel_'+SESSION))||0}catch(e){}
+  n=Math.max(n+1,anzahl||0);try{sessionStorage.setItem('cf_sammel_'+SESSION,String(n))}catch(e){}
+  var main=$('mainForm');
+  main.innerHTML='<div class="kfBox" style="text-align:center;padding:26px 18px"><h2 style="margin:0 0 8px">Gespeichert ✓</h2>'+
+    '<p style="margin:0 0 6px">'+(name?('<b>'+esc(name)+'</b> wurde gespeichert.'):'Die Angaben wurden gespeichert.')+'</p>'+
+    '<p class="mini" style="margin:0 0 18px">Bisher erfasst mit diesem Link: '+n+'</p>'+
+    '<div class="actions" style="justify-content:center"><button type="button" class="primaryBtn" id="sammelNext">Nächste Person erfassen</button></div>'+
+    '<p class="mini" style="margin:16px 0 0">Bist du fertig? Dann kannst du dieses Fenster einfach schließen.</p></div>';
+  $('sammelNext').onclick=function(){location.replace(location.href.split('#')[0])};
+  window.scrollTo(0,0);
+}
+function sammelAktiv(abgelaufen){
+  SAMMEL=true;document.documentElement.classList.add('sammel');
+  var n=0;try{n=parseInt(sessionStorage.getItem('cf_sammel_'+SESSION))||0}catch(e){}
+  var note=$('sammelNote');
+  if(abgelaufen){note.textContent='Dieser Sammel-Link ist abgelaufen. Bitte einen neuen Link anfordern.';note.classList.remove('hidden');$('submitBtn').disabled=true;return}
+  note.textContent='Sammel-Link: Nach dem Absenden kannst du direkt die nächste Person erfassen'+(n?(' (bisher '+n+' erfasst)'):'')+'.';
+  note.classList.remove('hidden');
 }
 function baueAbschnitte(d){
   var pg=CFForm.pflegegradHtml(d);
@@ -264,6 +288,7 @@ function startHelper(){
   try{
     var res=await fetch(API+'/studio-api',{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({action:'intake_session_get',session:SESSION,k:HKEY})});
     var r=await res.json();
+    if(r.ok&&r.mehrfach)sammelAktiv(r.mehrfach_abgelaufen);
     if(r.ok&&r.customer)fuelle(r.customer);
     else if(res.status===404){$('mainForm').classList.add('hidden');$('noSession').classList.remove('hidden')}
   }catch(e){}
