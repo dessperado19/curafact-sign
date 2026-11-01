@@ -296,3 +296,18 @@ input[type=checkbox]{border:1.5px solid #9FB0C6;border-radius:5px}
 .maAct{white-space:nowrap;text-align:right}.maAct button{margin-left:6px;padding:7px 12px;font-size:13px}
 .cfTable tr.off td{opacity:.55}
 @media(max-width:700px){.maForm{grid-template-columns:1fr}.maAct{white-space:normal}}
+
+/* Rückwirkend-Rechner: mehrere Zeiträume */
+.rcPh{border:1px solid var(--line);border-radius:10px;padding:14px 16px 4px;margin:0 0 12px;background:#fff}
+.rcPhHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:var(--navy)}
+.rcX{border:0;background:#E6EDF5;color:#33506b;border-radius:50%;width:28px;height:28px;padding:0;font-size:14px;line-height:1;cursor:pointer}
+.rcX:hover{background:#F6CFCF;color:#8a1f1f}
+.rcPhGrid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px}
+.rcPh .rcRow{margin-bottom:12px}
+.rcPh .rcSel select{min-width:120px}
+.rcChip.sm{padding:7px 14px;font-size:14px}
+.rcVpRow{display:flex;align-items:center;gap:10px;margin:8px 0 0}
+.rcVpRow b{min-width:44px;color:var(--navy)}
+.rcVpRow label{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.rcVpRow input{max-width:150px;padding:8px 12px;text-align:right}
+@media(max-width:700px){.rcPhGrid{grid-template-columns:1fr}}
