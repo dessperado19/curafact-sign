@@ -1,8 +1,8 @@
 /* Curafact – Rechner als Baustein (rechner.html und Ansicht „Rechner“ in index.html) */
 var CFRechner=(function(){
-  function mount(el){
+  function mountVoll(el){
     el.innerHTML=
-    '<div class="cfTop"><div><h1>Rechner</h1><p>Eigenständig rechnen – mit Abzug, ohne Kundenakte. Es wird nichts gespeichert; alle Eingaben bleiben in diesem Browser-Fenster.</p></div><div class="actions"><button type="button" data-r="reset">Alles zurücksetzen</button></div></div>'+
+    '<div class="cfTop"><div><h1>Rechner</h1><p>Eigenständig rechnen – mit Abzug, ohne Kundenakte. Es wird nichts gespeichert; alle Eingaben bleiben in diesem Browser-Fenster.</p></div><div class="actions"><button type="button" data-r="einfach">← Einfacher Rechner</button><button type="button" data-r="reset">Alles zurücksetzen</button></div></div>'+
     '<form class="cfPanel kf" data-r="root" onsubmit="return false">'+
       '<div class="wizardSteps"><span data-jump="s1">1 Person</span><span data-jump="s2">2 Pflegegrad</span><span data-jump="s5">3 Entlastung</span><span data-jump="s6">4 Verhinderungspflege</span><span data-jump="s9">5 Berechnung</span></div>'+
       '<h3 class="kfH" data-a="s1">1. Pflegebedürftige Person <small>– nur der Name wird für den Ausdruck gebraucht</small></h3><div data-r="person"></div>'+
@@ -41,7 +41,102 @@ var CFRechner=(function(){
     q('printCalc').onclick=function(){rechnen();CFC.drucken(q('resAus').innerHTML,'Curafact Berechnung')};
     q('printNach').onclick=function(){rechnen();CFC.drucken(q('resNach').innerHTML,'Curafact Nachweis')};
     el.querySelector('[data-r="reset"]').onclick=function(){if(confirm('Alle Eingaben löschen?'))aufbauen()};
+    el.querySelector('[data-r="einfach"]').onclick=function(){mountEinfach(el)};
     aufbauen();
   }
-  return {mount:mount};
+
+  /* ===== Einfacher Rückwirkend-Rechner: Name, Pflegegrad, Beginn, offene Jahre -> was rückwirkend zusteht und wie es sich aufteilt ===== */
+  var MONATE=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  function mountEinfach(el){
+    var K=KFC,C=CFC,F=CFForm,esc=C.esc,JAHRE=F.jahre();
+    var st={name:'',stufe:'',jahr:'',monat:'1',entOffen:{},vpOffen:{},pct:'40'};
+    function eur2(n){return Number(n||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'}
+    function startJahr(){return st.jahr==='frueher'?JAHRE[0]:(parseInt(st.jahr,10)||0)}
+    function von(){if(!st.jahr)return '';if(st.jahr==='frueher')return '01.01.'+JAHRE[0];return '01.'+String(st.monat).padStart(2,'0')+'.'+st.jahr}
+    function jahreAb(){var y0=startJahr();return y0?JAHRE.filter(function(y){return y>=y0}):[]}
+    function daten(){
+      var ent={},vp=[];
+      jahreAb().forEach(function(y){ent[y]=!st.entOffen[y]});
+      Object.keys(st.vpOffen).forEach(function(y){
+        if(!st.vpOffen[y]||parseInt(y,10)<startJahr())return;
+        var b=C.vpDefaultAmount(y),per=F.vpDefaultPeriod(y,b);
+        vp.push({jahr:String(y),genommen:false,betrag:String(b),start:per.start,ende:per.ende});
+      });
+      var ph=(st.stufe&&von())?K.formZuPhasen({stufe:st.stufe,von:von(),bis:''},[],ent,K.mk(new Date().getFullYear(),new Date().getMonth()+1,new Date().getDate())):[];
+      return {pflege_name:st.name,pflegegrade:ph,verhinderungspflege:vp,abzug_prozent:st.pct};
+    }
+    function proJahr(r){
+      var m={};
+      (r.details||[]).forEach(function(d){m[d.jahr]=m[d.jahr]||{pg:0,vp:0};m[d.jahr].pg+=d.gesamt||0});
+      (r.vpRows||[]).forEach(function(x){var y=parseInt(x.jahr,10);if(!y)return;m[y]=m[y]||{pg:0,vp:0};m[y].vp+=x.betrag||0});
+      return Object.keys(m).map(Number).sort().map(function(y){return {jahr:y,pg:m[y].pg,vp:m[y].vp,sum:m[y].pg+m[y].vp}});
+    }
+    function druckHtml(r,zeilen){
+      var t=new Date(),ds=String(t.getDate()).padStart(2,'0')+'.'+String(t.getMonth()+1).padStart(2,'0')+'.'+t.getFullYear();
+      var dm=C.deMoney||function(v){return Number(v||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})};
+      return '<div class="calcPrint"><div class="calcHead"><div><h3>Ihre Übersicht'+(st.name?' – '+esc(st.name):'')+'</h3><p>Pflegegrad '+esc(st.stufe)+', rückwirkend ab '+esc(von())+'</p></div><div class="muted">Stand: '+ds+'</div></div>'+
+        '<div class="calcBox summaryCalc"><table class="calcTable"><tbody>'+
+        '<tr class="brutto"><td><b>Rückwirkend insgesamt</b></td><td class="num"><b>'+eur2(r.brutto)+'</b></td></tr>'+
+        '<tr class="abzug"><td>Unser Anteil ('+esc(String(r.abzugPct).replace('.',','))+' %)</td><td class="num">− '+eur2(r.abzug)+'</td></tr>'+
+        '<tr class="netto"><td><b>Für Sie</b></td><td class="num"><b>'+eur2(r.netto)+'</b></td></tr></tbody></table></div>'+
+        '<div class="calcBox"><h4>Aufteilung nach Jahren</h4><table class="calcTable"><thead><tr><th>Jahr</th><th class="num">Pflegegrad (Umwandlung / Entlastung)</th><th class="num">Verhinderungspflege</th><th class="num">Summe</th></tr></thead><tbody>'+
+        zeilen.map(function(z){return '<tr><td>'+z.jahr+'</td><td class="num">'+eur2(z.pg)+'</td><td class="num">'+eur2(z.vp)+'</td><td class="num">'+eur2(z.sum)+'</td></tr>'}).join('')+
+        '</tbody><tfoot><tr class="calcTotalRow"><td>Gesamt</td><td class="num">'+eur2(r.sumPG)+'</td><td class="num">'+eur2(r.sumVP)+'</td><td class="num">'+eur2(r.brutto)+'</td></tr></tfoot></table></div>'+
+        '<div class="calcLegal"><p>Unverbindliche Berechnung auf Grundlage Ihrer Angaben und der jeweils geltenden Beträge. Die tatsächliche Höhe stellt die Pflegekasse fest.</p></div></div>';
+    }
+    el.innerHTML=
+      '<div class="cfTop"><div><h1>Rückwirkend-Rechner</h1><p>Zeigt in Zahlen, was rückwirkend zusteht und wie sich der Betrag aufteilt. Es wird nichts gespeichert.</p></div><div class="actions"><button type="button" data-r="reset">Zurücksetzen</button><button type="button" data-r="voll">Ausführlich rechnen</button></div></div>'+
+      '<div class="cfPanel rcPanel"><h2>Angaben</h2>'+
+        '<div class="rcRow"><label for="rcName">Name</label><input id="rcName" class="cfInput" type="text" autocomplete="off" placeholder="Name der pflegebedürftigen Person"></div>'+
+        '<div class="rcRow"><label>Pflegegrad</label><div class="rcChips" data-r="pg">'+[1,2,3,4,5].map(function(n){return '<button type="button" class="rcChip" data-pg="'+n+'">Pflegegrad '+n+'</button>'}).join('')+'</div></div>'+
+        '<div class="rcRow"><label>Pflegegrad besteht seit</label><div class="rcSel"><select data-r="jahr" class="cfInput"><option value="">Jahr wählen …</option><option value="frueher">'+(JAHRE[0]-1)+' oder früher</option>'+JAHRE.map(function(y){return '<option value="'+y+'">'+y+'</option>'}).join('')+'</select>'+
+          '<select data-r="monat" class="cfInput">'+MONATE.map(function(m,i){return '<option value="'+(i+1)+'">'+m+'</option>'}).join('')+'</select></div></div>'+
+        '<div class="rcRow" data-r="entRow"><label>Entlastungsbetrag – in diesen Jahren <b>nicht</b> genutzt</label><div class="rcChips" data-r="ent"></div><div class="mini">Tippen, was nicht genutzt wurde. Nichts angetippt = in allen Jahren genutzt.</div></div>'+
+        '<div class="rcRow" data-r="vpRow"><label>Verhinderungspflege / Kurzzeitpflege – in diesen Jahren <b>nicht</b> genutzt</label><div class="rcChips" data-r="vp"></div><div class="mini">Nur angetippte Jahre werden mit dem vollen Jahresbetrag gerechnet.</div></div>'+
+        '<div class="rcRow rcPct"><label for="rcPct">Unser Anteil in %</label><input id="rcPct" class="cfInput" type="text" inputmode="decimal" value="40"></div>'+
+      '</div>'+
+      '<div class="cfPanel rcPanel" data-r="res"></div>';
+    function q(n){return el.querySelector('[data-r="'+n+'"]')}
+    function chips(box,key,map){
+      box.innerHTML=jahreAb().map(function(y){return '<button type="button" class="rcChip'+(st[map][y]?' on':'')+'" data-y="'+y+'">'+y+'</button>'}).join('')||'<span class="mini">Bitte erst den Beginn wählen.</span>';
+    }
+    function zeichne(){
+      el.querySelector('#rcName').value=st.name;
+      [].forEach.call(q('pg').children,function(b){b.classList.toggle('on',b.dataset.pg===st.stufe)});
+      q('monat').style.display=(st.jahr&&st.jahr!=='frueher')?'':'none';
+      chips(q('ent'),'ent','entOffen');chips(q('vp'),'vp','vpOffen');
+      rechnen();
+    }
+    function rechnen(){
+      var box=q('res');
+      if(!st.stufe||!st.jahr){box.innerHTML='<h2>Ergebnis</h2><div class="empty">Bitte Pflegegrad und Beginn wählen – dann erscheint hier die Berechnung.</div>';return}
+      var d=daten(),r=C.berechne(d,st.pct),zeilen=proJahr(r),pct=Math.max(0,Math.min(100,r.abzugPct||0));
+      var kunde=100-pct;
+      box.innerHTML='<h2>Ergebnis</h2>'+
+        '<div class="rcTiles">'+
+          '<div class="rcTile"><small>Rückwirkend insgesamt</small><strong>'+eur2(r.brutto)+'</strong></div>'+
+          '<div class="rcTile rcOwn"><small>Für den Kunden</small><strong>'+eur2(r.netto)+'</strong></div>'+
+          '<div class="rcTile"><small>Unser Anteil ('+esc(String(r.abzugPct).replace('.',','))+' %)</small><strong>'+eur2(r.abzug)+'</strong></div>'+
+        '</div>'+
+        '<div class="rcBar" aria-hidden="true"><i style="width:'+kunde+'%">'+(kunde>=14?'Kunde '+Math.round(kunde)+' %':'')+'</i><b style="width:'+pct+'%">'+(pct>=14?Math.round(pct)+' %':'')+'</b></div>'+
+        '<div class="tablewrap"><table class="cfTable"><thead><tr><th>Jahr</th><th class="num">Pflegegrad (Umwandlung / Entlastung)</th><th class="num">Verhinderungspflege</th><th class="num">Summe</th></tr></thead><tbody>'+
+          (zeilen.length?zeilen.map(function(z){return '<tr><td><b>'+z.jahr+'</b></td><td class="num">'+eur2(z.pg)+'</td><td class="num">'+eur2(z.vp)+'</td><td class="num"><b>'+eur2(z.sum)+'</b></td></tr>'}).join(''):'<tr><td colspan="4" class="mini">Für diese Angaben ergibt sich kein rückwirkender Betrag.</td></tr>')+
+        '</tbody></table></div>'+
+        '<div class="actions" style="margin-top:14px"><button type="button" class="primaryBtn" data-r="print">Übersicht drucken / als PDF</button></div>'+
+        '<p class="mini">Unverbindliche Berechnung. Gerechnet wird höchstens ab 01.01.'+JAHRE[0]+' (Verjährung).</p>';
+      q('print').onclick=function(){C.drucken(druckHtml(r,zeilen),'Curafact Übersicht')};
+    }
+    el.querySelector('#rcName').oninput=function(){st.name=this.value;rechnen()};
+    el.querySelector('#rcPct').oninput=function(){st.pct=this.value.replace(',','.');rechnen()};
+    q('pg').onclick=function(e){var b=e.target.closest('[data-pg]');if(!b)return;st.stufe=b.dataset.pg;zeichne()};
+    q('jahr').onchange=function(){st.jahr=this.value;var y0=startJahr();[st.entOffen,st.vpOffen].forEach(function(m){Object.keys(m).forEach(function(y){if(parseInt(y,10)<y0)delete m[y]})});zeichne()};
+    q('monat').onchange=function(){st.monat=this.value;rechnen()};
+    q('ent').onclick=function(e){var b=e.target.closest('[data-y]');if(!b)return;var y=b.dataset.y;st.entOffen[y]=!st.entOffen[y];b.classList.toggle('on',!!st.entOffen[y]);rechnen()};
+    q('vp').onclick=function(e){var b=e.target.closest('[data-y]');if(!b)return;var y=b.dataset.y;st.vpOffen[y]=!st.vpOffen[y];b.classList.toggle('on',!!st.vpOffen[y]);rechnen()};
+    el.querySelector('[data-r="reset"]').onclick=function(){if(!confirm('Alle Eingaben löschen?'))return;st={name:'',stufe:'',jahr:'',monat:'1',entOffen:{},vpOffen:{},pct:'40'};q('jahr').value='';q('monat').value='1';el.querySelector('#rcPct').value='40';zeichne()};
+    el.querySelector('[data-r="voll"]').onclick=function(){mountVoll(el)};
+    zeichne();
+  }
+  function mount(el){mountEinfach(el)}
+  return {mount:mount,mountVoll:mountVoll,mountEinfach:mountEinfach};
 })();

@@ -253,3 +253,30 @@ input[type=checkbox]{border:1.5px solid #9FB0C6;border-radius:5px}
 .inWrap h1{font-family:var(--serif);font-weight:600;font-size:30px;color:var(--navy);letter-spacing:-.015em}
 #submitBtn,#submitHelperBtn{background:var(--navy)!important;box-shadow:none;border-radius:10px;font-weight:600}
 @media(max-width:1000px){.cfSide{border-right:0;border-bottom:1px solid var(--line);padding:14px}.cfNav a.active::before,.cfNav button.active::before{display:none}}
+
+/* ===== Rückwirkend-Rechner (einfach) ===== */
+.rcPanel h2{margin-bottom:14px}
+.rcRow{margin:0 0 18px}
+.rcRow>label{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+.rcRow>label b{color:var(--navy)}
+.rcRow input.cfInput,.rcRow select.cfInput{max-width:420px;padding:12px 14px;font-size:16px}
+.rcChips{display:flex;flex-wrap:wrap;gap:8px}
+.rcChip{border:1px solid #C3CEDF;background:#fff;color:var(--navy);border-radius:999px;padding:10px 18px;font-size:15px;font-weight:600;cursor:pointer}
+.rcChip:hover{border-color:var(--teal)}
+.rcChip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.rcSel{display:flex;gap:10px;flex-wrap:wrap}
+.rcSel select{flex:1;min-width:160px}
+.rcPct input{max-width:120px;text-align:center}
+.rcRow .mini{margin-top:6px}
+.rcTiles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 14px}
+.rcTile{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.rcTile small{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.rcTile strong{display:block;font-family:var(--serif);font-weight:600;font-size:30px;letter-spacing:-.015em;color:var(--navy);font-variant-numeric:tabular-nums}
+.rcTile.rcOwn{border-color:var(--teal);background:#E7F2F5}
+.rcTile.rcOwn strong{color:#0B6F7C}
+.rcBar{display:flex;height:34px;border-radius:8px;overflow:hidden;margin:0 0 18px;border:1px solid var(--line);background:#fff}
+.rcBar i,.rcBar b{display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;font-size:13px;color:#fff;white-space:nowrap;transition:width .25s}
+.rcBar i{background:var(--teal)}
+.rcBar b{background:var(--navy)}
+.cfTable .num,.cfTable th.num{text-align:right;font-variant-numeric:tabular-nums}
+@media(max-width:760px){.rcTiles{grid-template-columns:1fr}.rcTile strong{font-size:26px}}
