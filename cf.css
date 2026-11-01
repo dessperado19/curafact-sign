@@ -181,3 +181,75 @@ input.dt.ungueltig{border-bottom-color:#c0392b;background:#fdecec}
 /* breitere Ansicht auf großen Bildschirmen: Stammdaten in 3 Spalten */
 .cfMain{max-width:1320px}
 @media(min-width:1500px){.cfDl{grid-template-columns:repeat(3,1fr)}}
+
+/* ===== Design „Redaktionell · Nebelblau“ (wie Portal und Studio) – überschreibt die Regeln darüber ===== */
+:root{--bg:#EDF1F6;--card:#FAFBFD;--blue:#11284B;--blue2:#0B1C36;--cyan:#1496A8;--teal:#1496A8;--navy:#11284B;--text:#172033;--muted:#5C687D;--border:#D8E0EB;--line:#D8E0EB;--field:#fff;--soft:#E4EAF2;--ring:rgba(20,150,168,.18);--shadow:0 1px 2px rgba(17,40,75,.04),0 8px 24px rgba(17,40,75,.05);--serif:"Iowan Old Style","Palatino Linotype",Palatino,"New York",Georgia,serif}
+html,body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+button:focus:not(:focus-visible){outline:none}
+button{border-radius:8px;font-weight:600;color:var(--navy)}
+button:hover{border-color:var(--teal)}
+.primaryBtn{background:var(--navy)!important;border-color:var(--navy)!important;color:#fff!important}
+.primaryBtn:hover{background:#0B1C36!important}
+.dangerBtn{color:#B4332F}
+
+/* Seitenleiste */
+.cfSide{background:var(--card);color:var(--text);border-right:1px solid var(--line);padding:24px 16px 20px;gap:18px}
+.cfBrand{background:transparent;box-shadow:none;border-radius:0;padding:0 6px}
+.cfBrand img{width:auto;max-width:100%;height:40px;object-fit:contain;object-position:left center}
+.cfNav{gap:2px}
+.cfNav button,.cfNav a{background:transparent;color:var(--muted);border-radius:8px;font-weight:600;font-size:15px;padding:11px 12px;position:relative}
+.cfNav button:hover,.cfNav a:hover{background:var(--soft);color:var(--navy)}
+.cfNav button.active,.cfNav a.active{background:#E1E8F2;color:var(--navy);font-weight:700}
+.cfNav a.active::before,.cfNav button.active::before{content:'';position:absolute;left:-16px;top:9px;bottom:9px;width:3px;background:var(--teal);border-radius:0 3px 3px 0}
+.cfSide .who{color:var(--muted)}
+.cfSide .who strong{color:var(--navy)}
+.navBadge{background:var(--teal)}
+
+/* Kundenliste links */
+.cfRail{background:#F4F7FB;border-right:1px solid var(--line)}
+.cfRail h2{font-family:var(--serif);font-weight:600;font-size:23px;color:var(--navy);letter-spacing:-.01em}
+.cfCount{border-color:var(--border);color:var(--navy);font-weight:700}
+.cfSearch{background:#fff;border:1px solid #C3CEDF;border-bottom:1px solid #C3CEDF;border-radius:8px}
+.cfSearch:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--ring)}
+.cfCust{border-radius:8px;box-shadow:none;border-color:var(--border)}
+.cfCust:hover{border-color:var(--teal)}
+.cfCust.sel{border-color:var(--teal);background:#E7F2F5}
+.cfCust strong{color:var(--navy);font-weight:650}
+
+/* Inhalt */
+.cfTop h1{font-family:var(--serif);font-weight:600;font-size:32px;color:var(--navy);letter-spacing:-.015em}
+.cfPanel{background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:none}
+.cfPanel>h2,.cfPanel>.cfHead h2{font-family:var(--serif);font-weight:600;color:var(--navy);border-bottom:1px solid var(--line)}
+.cfPanel>h2:before,.cfPanel>.cfHead h2:before,.kf h3.kfH:before{display:none}
+.kf h3.kfH{font-family:var(--serif);font-weight:600;color:var(--navy)}
+.badge{background:#DDF0F3;color:#0B6F7C;font-weight:650}
+.empty{background:var(--card);border-radius:8px}
+.note{border-radius:8px}
+
+/* Felder */
+.kfF input,.kfF select,.kfF textarea,.kfPgF select,.kfPgF input,.cfInput,.kfAbz input{background:#fff;border:1px solid #C3CEDF;border-bottom:1px solid #C3CEDF;border-radius:8px;color:var(--text)}
+.kfF input:focus,.kfF select:focus,.kfF textarea:focus,.kfPgF input:focus,.cfInput:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--ring);background:#fff}
+.kfF label,.cfDl div label{color:var(--muted);font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+input[type=checkbox]{border:1.5px solid #9FB0C6;border-radius:5px}
+.kfPgBtn{border-color:#C3CEDF;border-radius:8px;font-weight:600}
+.kfPgBtn.on{background:var(--navy);border-color:var(--navy)}
+.kfTab td{background:#fff;border-bottom:1px solid var(--border)}
+.kfBox,details.kfDet,.helperSlot{border-color:var(--line);border-radius:8px;background:#fff}
+.sigCanvas,#cfMain canvas.sig,.sigArea canvas{border:1.5px dashed #B3C0D4;border-radius:8px}
+.wizardSteps span{background:#E1E8F2;color:var(--navy);border-color:transparent;font-weight:650}
+.wizardSteps span:hover{background:var(--teal);color:#fff}
+.cfTable th{background:transparent;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;font-size:11.5px}
+.kfBar{background:rgba(250,251,253,.96)}
+
+/* Anmeldung, Fenster */
+.loginWrap .cfPanel{border-radius:12px;box-shadow:0 24px 60px rgba(17,40,75,.14)}
+.modalBox{border-radius:12px;background:var(--card)}
+.modalBox h3{font-family:var(--serif);font-weight:600}
+
+/* Aufnahme (Link für Kunden) */
+.inBar{height:3px;background:#14213A}
+.inHead{justify-content:flex-start;max-width:860px;margin:0 auto}
+.inWrap h1{font-family:var(--serif);font-weight:600;font-size:30px;color:var(--navy);letter-spacing:-.015em}
+#submitBtn,#submitHelperBtn{background:var(--navy)!important;box-shadow:none;border-radius:10px;font-weight:600}
+@media(max-width:1000px){.cfSide{border-right:0;border-bottom:1px solid var(--line);padding:14px}.cfNav a.active::before,.cfNav button.active::before{display:none}}
