@@ -1,6 +1,6 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curafact – Aufnahme</title><link rel="stylesheet" href="cf.css?v=22"><style>.sammel .shareSlotBtn,.sammel .linkResult,.sammel #s5+p.mini{display:none!important}</style>
+<title>Curafact – Aufnahme</title><link rel="stylesheet" href="cf.css?v=23"><style>.sammel .shareSlotBtn,.sammel .linkResult,.sammel #s5+p.mini{display:none!important}</style>
 </head><body style="background:#eef4f9">
 <div class="inBar"></div><div class="inHead"><img src="logo.png" alt="Curafact"></div>
 <div class="inWrap">
@@ -59,7 +59,7 @@
 </div>
 <div class="cffoot">Curafact · Persönlich. Fürsorglich. An Ihrer Seite.</div>
 
-<script src="kfc.js"></script><script src="cf-calc.js?v=16"></script><script src="cf-form.js?v=16"></script><script src="cf-sig.js?v=16"></script>
+<script src="kfc.js?v=2"></script><script src="cf-calc.js?v=16"></script><script src="cf-form.js?v=16"></script><script src="cf-sig.js?v=16"></script>
 <script>
 var API='https://nhxofktmsawvjrzngzft.supabase.co/functions/v1',KEY='sb_publishable_lqh2IU2DmT0NRQssFY3R3w_gnKvMRbK';
 if(/[?&]embed=1/.test(location.search))document.documentElement.classList.add('embed');
@@ -78,15 +78,14 @@ document.addEventListener('focusout',function(e){
   else if(d){el.value=KFC.fmt(d);el.classList.remove('ungueltig')}
   else el.classList.add('ungueltig');
 });
-/* Ziffernblock am iPhone hat keinen Punkt: Punkte nach Tag und Monat automatisch setzen (nicht beim Löschen) */
-document.addEventListener('input',function(e){
-  var el=e.target;if(!el.classList||!el.classList.contains('dt'))return;
-  if(e.inputType&&e.inputType.indexOf('delete')===0)return;
-  var v=el.value.replace(/\.{2,}/g,'.');
-  if(/^\d{2}$/.test(v)||/^\d{1,2}\.\d{2}$/.test(v))v+='.';
-  if(v.length>10)v=v.slice(0,10);
-  if(v!==el.value)el.value=v;
+/* Pflegegrad-Datumsfelder: nur prüfen und markieren (Monat/Jahr bleibt wie eingegeben) */
+document.addEventListener('focusout',function(e){
+  var el=e.target;if(!el.classList)return;
+  if(!(el.id==='kf_pg_seit'||el.id==='kf_pg_bis'||el.classList.contains('kfPgFVon')||el.classList.contains('kfPgFBis')))return;
+  var t=el.value.trim();if(!t){el.classList.remove('ungueltig');return}
+  if(KFC.parse(t,false))el.classList.remove('ungueltig');else el.classList.add('ungueltig');
 });
+/* Punkte-Automatik für alle Datumsfelder: siehe kfc.js (KFC.datumPunkte) */
 function setzeSeite(titel,sub){$('pageTitle').textContent=titel;$('pageSub').textContent=sub||''}
 
 /* ---------- Nachbarschaftshilfe ---------- */
@@ -211,7 +210,7 @@ function startMain(){
     var msg=$('msg');
     if(!$('f_pflege_name').value.trim()){msg.textContent='Bitte mindestens den Namen eintragen.';return}
     if(!SESSION){msg.textContent='Ungültiger Link (keine Sitzung).';return}
-    var bad=document.querySelector('input.dt.ungueltig');if(bad&&!confirm('Ein Datum sieht ungültig aus. Trotzdem senden?'))return;
+    var bad=document.querySelector('input.ungueltig');if(bad&&!confirm('Ein Datum sieht ungültig aus ('+(bad.value||'leer')+'). Wirklich so senden? Bei „Abbrechen“ kannst du es noch korrigieren.'))return;
     msg.textContent='Wird gesendet …';$('submitBtn').disabled=true;
     var r=await senden({type:'intake',session:SESSION,role:'main',data:sammle(),dataurl:window.mainSig.getDataUrl()}).catch(function(){return {ok:false,status:0}});
     if(r.ok&&r.neu_session){abgeschickt=true;sammelErfolg(r.anzahl,($('f_pflege_name').value||'').trim())}

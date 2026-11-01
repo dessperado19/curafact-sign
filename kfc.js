@@ -7,7 +7,13 @@ var KFC=(function(){
   function letzterTag(y,m){return new Date(y,m,0,12).getDate()}
   /* "TT.MM.JJJJ", "TT.MM.JJ", "MM.JJJJ", "MM.JJ", "JJJJ" -> Date; ende=true: bei fehlendem Tag letzter Tag des Monats/Jahres */
   function parse(txt,ende){
-    var t=String(txt==null?'':txt).trim().replace(/[\/\-]/g,'.');if(!t)return null;
+    var t=String(txt==null?'':txt).trim().replace(/[\/\-\s,]/g,'.');if(!t)return null;
+    /* Vergessene Punkte ergänzen: 01.042026, 01042026, 042026 (MM.JJJJ), 010426 (TT.MM.JJ) */
+    var m1=/^(\d{1,2})\.(\d{2})(\d{4})$/.exec(t);if(m1)t=m1[1]+'.'+m1[2]+'.'+m1[3];
+    else if(/^\d+$/.test(t)){
+      if(t.length===8)t=t.slice(0,2)+'.'+t.slice(2,4)+'.'+t.slice(4);
+      else if(t.length===6)t=/^(0[1-9]|1[0-2])(19|20)\d\d$/.test(t)?t.slice(0,2)+'.'+t.slice(2):t.slice(0,2)+'.'+t.slice(2,4)+'.'+t.slice(4);
+    }
     var p=t.split('.').filter(function(x){return x!==''}).map(function(x){return parseInt(x,10)});
     if(p.some(isNaN))return null;
     function jahr(y){return y<100?2000+y:y}
@@ -91,4 +97,33 @@ var KFC=(function(){
   }
   return {parse:parse,fmt:fmt,phasenZuForm:phasenZuForm,formZuPhasen:formZuPhasen,START_JAHR:START_JAHR,mk:mk};
 })();
+
+/* Datumsfelder: Punkte automatisch setzen (Ziffernblock am iPhone hat keinen Punkt; auch bei Einfügen/Diktat/Autofill).
+   Volle Datumsfelder (.dt, z. B. Geburtsdatum): 10101999 -> 10.10.1999.
+   Pflegegrad-Felder (Gilt seit/Bis/früher von/bis): wie oben, aber "04.2026" (Monat.Jahr mit Punkt) bleibt Monat/Jahr. */
+if(typeof document!=='undefined'){
+  KFC.datumPunkte=function(v,voll){
+    v=String(v).replace(/\.{2,}/g,'.');
+    if(voll){
+      var z=v.replace(/\D/g,'').slice(0,8),o=z.slice(0,2);
+      if(z.length>=2&&z.length<8)o+='.';           /* nach Tag sofort Punkt */
+      if(z.length>2)o+=z.slice(2,4);
+      if(z.length>=4&&z.length<8)o+='.';           /* nach Monat sofort Punkt */
+      if(z.length>4)o+=z.slice(4);
+      return z.length<2?z:o;
+    }
+    if(/^\d+$/.test(v)&&v.length>=3)v=v.slice(0,2)+'.'+v.slice(2);
+    var m=/^(\d{2})\.(\d{2})(\d+)$/.exec(v);
+    if(m&&+m[2]>=1&&+m[2]<=12)v=m[1]+'.'+m[2]+'.'+m[3];
+    return v.slice(0,10);
+  };
+  document.addEventListener('input',function(e){
+    var el=e.target;if(!el||el.tagName!=='INPUT')return;
+    var voll=el.classList.contains('dt');
+    var pg=el.id==='kf_pg_seit'||el.id==='kf_pg_bis'||el.classList.contains('kfPgFVon')||el.classList.contains('kfPgFBis');
+    if(!voll&&!pg)return;
+    if(e.inputType&&e.inputType.indexOf('delete')===0)return;
+    var n=KFC.datumPunkte(el.value,voll);if(n!==el.value)el.value=n;
+  });
+}
 if(typeof module!=='undefined')module.exports=KFC;
