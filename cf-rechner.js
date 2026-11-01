@@ -73,16 +73,49 @@ var CFRechner=(function(){
     }
     function druckHtml(r,zeilen){
       var t=new Date(),ds=String(t.getDate()).padStart(2,'0')+'.'+String(t.getMonth()+1).padStart(2,'0')+'.'+t.getFullYear();
-      var dm=C.deMoney||function(v){return Number(v||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})};
-      return '<div class="calcPrint"><div class="calcHead"><div><h3>Ihre Übersicht'+(st.name?' – '+esc(st.name):'')+'</h3><p>Pflegegrad '+esc(st.stufe)+', rückwirkend ab '+esc(von())+'</p></div><div class="muted">Stand: '+ds+'</div></div>'+
-        '<div class="calcBox summaryCalc"><table class="calcTable"><tbody>'+
-        '<tr class="brutto"><td><b>Rückwirkend insgesamt</b></td><td class="num"><b>'+eur2(r.brutto)+'</b></td></tr>'+
-        '<tr class="abzug"><td>Unser Anteil ('+esc(String(r.abzugPct).replace('.',','))+' %)</td><td class="num">− '+eur2(r.abzug)+'</td></tr>'+
-        '<tr class="netto"><td><b>Für Sie</b></td><td class="num"><b>'+eur2(r.netto)+'</b></td></tr></tbody></table></div>'+
-        '<div class="calcBox"><h4>Aufteilung nach Jahren</h4><table class="calcTable"><thead><tr><th>Jahr</th><th class="num">Pflegegrad (Umwandlung / Entlastung)</th><th class="num">Verhinderungspflege</th><th class="num">Summe</th></tr></thead><tbody>'+
-        zeilen.map(function(z){return '<tr><td>'+z.jahr+'</td><td class="num">'+eur2(z.pg)+'</td><td class="num">'+eur2(z.vp)+'</td><td class="num">'+eur2(z.sum)+'</td></tr>'}).join('')+
-        '</tbody><tfoot><tr class="calcTotalRow"><td>Gesamt</td><td class="num">'+eur2(r.sumPG)+'</td><td class="num">'+eur2(r.sumVP)+'</td><td class="num">'+eur2(r.brutto)+'</td></tr></tfoot></table></div>'+
-        '<div class="calcLegal"><p>Unverbindliche Berechnung auf Grundlage Ihrer Angaben und der jeweils geltenden Beträge. Die tatsächliche Höhe stellt die Pflegekasse fest.</p></div></div>';
+      var pct=Math.max(0,Math.min(100,r.abzugPct||0)),kunde=100-pct,pctTxt=String(r.abzugPct).replace('.',',');
+      var css='<style>'+
+        '@page{size:A4;margin:14mm 15mm}'+
+        '.rcP{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Helvetica,Arial,sans-serif;color:#172033;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:0}'+
+        '.rcP *{box-sizing:border-box}'+
+        '.rcP .kopf{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #14213A;padding-bottom:10px;margin-bottom:18px}'+
+        '.rcP .kopf img{height:34px}.rcP .kopf span{font-size:12px;color:#5C687D}'+
+        '.rcP .eyebrow{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#1496A8;margin:0 0 4px}'+
+        '.rcP h1{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:600;font-size:30px;letter-spacing:-.015em;color:#11284B;margin:0 0 4px}'+
+        '.rcP .sub{font-size:13.5px;color:#5C687D;margin:0 0 20px}'+
+        '.rcP .kacheln{display:flex;gap:10px;margin:0 0 12px}'+
+        '.rcP .kachel{flex:1;border:1px solid #D8E0EB;border-radius:8px;padding:12px 14px;background:#fff}'+
+        '.rcP .kachel small{display:block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#5C687D;margin:0 0 6px}'+
+        '.rcP .kachel strong{display:block;font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:600;font-size:23px;letter-spacing:-.01em;color:#11284B}'+
+        '.rcP .kachel.kunde{border-color:#1496A8;background:#E7F2F5}.rcP .kachel.kunde strong{color:#0B6F7C}'+
+        '.rcP .balken{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid #D8E0EB;margin:0 0 20px}'+
+        '.rcP .balken i,.rcP .balken b{display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:700;font-size:11px;color:#fff;white-space:nowrap}'+
+        '.rcP .balken i{background:#1496A8}.rcP .balken b{background:#11284B}'+
+        '.rcP h2{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;font-weight:600;font-size:16px;color:#11284B;margin:0 0 8px}'+
+        '.rcP table{width:100%;border-collapse:collapse;font-size:12.5px}'+
+        '.rcP th{text-align:left;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#5C687D;padding:8px 8px;border-bottom:1px solid #D8E0EB}'+
+        '.rcP td{padding:9px 8px;border-bottom:1px solid #E7ECF3}'+
+        '.rcP .num{text-align:right;font-variant-numeric:tabular-nums}'+
+        '.rcP tfoot td{font-weight:700;color:#11284B;border-top:2px solid #11284B;border-bottom:0}'+
+        '.rcP .hinweis{margin:18px 0 0;font-size:10.5px;line-height:1.5;color:#5C687D}'+
+        '</style>';
+      return css+'<div class="rcP">'+
+        '<div class="kopf"><img src="logo.png" alt="Curafact"><span>Stand: '+ds+'</span></div>'+
+        '<p class="eyebrow">Ihre Übersicht</p>'+
+        '<h1>'+(st.name?esc(st.name):'Rückwirkende Ansprüche')+'</h1>'+
+        '<p class="sub">Pflegegrad '+esc(st.stufe)+' · rückwirkend ab '+esc(von())+'</p>'+
+        '<div class="kacheln">'+
+          '<div class="kachel"><small>Rückwirkend insgesamt</small><strong>'+eur2(r.brutto)+'</strong></div>'+
+          '<div class="kachel kunde"><small>Für Sie</small><strong>'+eur2(r.netto)+'</strong></div>'+
+          '<div class="kachel"><small>Unser Anteil ('+esc(pctTxt)+' %)</small><strong>'+eur2(r.abzug)+'</strong></div>'+
+        '</div>'+
+        '<div class="balken"><i style="width:'+kunde+'%">'+(kunde>=14?'Sie '+Math.round(kunde)+' %':'')+'</i><b style="width:'+pct+'%">'+(pct>=14?Math.round(pct)+' %':'')+'</b></div>'+
+        '<h2>Aufteilung nach Jahren</h2>'+
+        '<table><thead><tr><th>Jahr</th><th class="num">Pflegegrad (Umwandlung / Entlastung)</th><th class="num">Verhinderungspflege</th><th class="num">Summe</th></tr></thead><tbody>'+
+          zeilen.map(function(z){return '<tr><td><b>'+z.jahr+'</b></td><td class="num">'+eur2(z.pg)+'</td><td class="num">'+eur2(z.vp)+'</td><td class="num"><b>'+eur2(z.sum)+'</b></td></tr>'}).join('')+
+        '</tbody><tfoot><tr><td>Gesamt</td><td class="num">'+eur2(r.sumPG)+'</td><td class="num">'+eur2(r.sumVP)+'</td><td class="num">'+eur2(r.brutto)+'</td></tr></tfoot></table>'+
+        '<p class="hinweis">Unverbindliche Berechnung auf Grundlage Ihrer Angaben und der jeweils geltenden Beträge. Gerechnet wird höchstens ab 01.01.'+JAHRE[0]+' (Verjährung). Die tatsächliche Höhe stellt die Pflegekasse fest.</p>'+
+      '</div>';
     }
     el.innerHTML=
       '<div class="cfTop"><div><h1>Rückwirkend-Rechner</h1><p>Zeigt in Zahlen, was rückwirkend zusteht und wie sich der Betrag aufteilt. Es wird nichts gespeichert.</p></div><div class="actions"><button type="button" data-r="reset">Zurücksetzen</button><button type="button" data-r="voll">Ausführlich rechnen</button></div></div>'+
