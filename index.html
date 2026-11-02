@@ -127,7 +127,7 @@ function aufnStatus(x){
   if(x.is_edit)return {t:x.main_received?(x.draft?'Änderung – Entwurf':'Änderung eingegangen'):'Änderung – Link offen',k:x.main_received&&!x.draft?'zu':(x.main_received?'entwurf':'leer')};
   if(!x.main_received)return {t:'Link offen',k:'leer'};
   if(x.draft)return {t:'Entwurf (noch nicht abgeschickt)',k:'entwurf'};
-  if(/^Mögliches Duplikat/.test(x.note||''))return {t:x.note,k:'zu'};
+  if(/^Mögliches Duplikat/.test(x.note||''))return {t:String(x.note).replace(/^Mögliches Duplikat:?\s*/,'Schon in Studio vorhanden: ')+' (nicht doppelt angelegt)',k:'zu'};
   return {t:'Eingegangen – wird in Studio übernommen',k:'zu'};
 }
 function aufnTs(x){return x.submitted_at?Date.parse(x.submitted_at):(x.created_at?x.created_at*1000:0)}
