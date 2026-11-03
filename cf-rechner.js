@@ -189,9 +189,10 @@ var CFRechner=(function(){
         '<div class="tablewrap"><table class="cfTable"><thead><tr><th>Jahr</th><th class="num">Pflegegrad (Umwandlung / Entlastung)</th><th class="num">Verhinderungspflege</th><th class="num">Summe</th></tr></thead><tbody>'+
           (zeilen.length?zeilen.map(function(z){return '<tr><td><b>'+z.jahr+'</b></td><td class="num">'+eur2(z.pg)+'</td><td class="num">'+eur2(z.vp)+'</td><td class="num"><b>'+eur2(z.sum)+'</b></td></tr>'}).join(''):'<tr><td colspan="4" class="mini">Für diese Angaben ergibt sich kein rückwirkender Betrag.</td></tr>')+
         '</tbody></table></div>'+
-        '<div class="actions" style="margin-top:14px"><button type="button" class="primaryBtn" data-r="print">Übersicht drucken / als PDF</button></div>'+
+        '<div class="actions" style="margin-top:14px"><button type="button" class="primaryBtn" data-r="print">Übersicht drucken / als PDF</button>'+(api.onAufnahme?'<button type="button" data-r="aufnahme" title="Name, Pflegegrade, Zeiträume und Verhinderungspflege in die Neukunden-Aufnahme übernehmen">Als neuen Kunden aufnehmen →</button>':'')+'</div>'+
         '<p class="mini">Unverbindliche Berechnung. Gerechnet wird höchstens ab 01.01.'+J0+' (Verjährung). Überschneiden sich Zeiträume, gilt für jeden Monat der später beginnende.</p>';
       q('print').onclick=function(){C.drucken(druckHtml(r,zeilen,g),'Curafact Übersicht')};
+      if(q('aufnahme'))q('aufnahme').onclick=function(){api.onAufnahme(daten())};
     }
     function alles(){zeichnePhasen();zeichneVp();rechnen()}
     /* Ereignisse */
@@ -223,5 +224,7 @@ var CFRechner=(function(){
     alles();
   }
   function mount(el){mountEinfach(el)}
-  return {mount:mount,mountVoll:mountVoll,mountEinfach:mountEinfach};
+  /* onAufnahme(daten): wird von der Seite gesetzt; zeigt dann den Knopf „Als neuen Kunden aufnehmen“ */
+  var api={mount:mount,mountVoll:mountVoll,mountEinfach:mountEinfach,onAufnahme:null};
+  return api;
 })();

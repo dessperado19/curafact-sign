@@ -283,6 +283,13 @@ function startHelper(){
   if(!SESSION){$('noSession').classList.remove('hidden');return}
   if(ROLE==='helper'){startHelper();return}
   startMain();
+  /* Vorbelegung aus dem Rechner der Web-Ansicht (nur im eingebetteten Formular, einmalig) */
+  if(document.documentElement.classList.contains('embed')){
+    try{
+      var vb=sessionStorage.getItem('cf_vorbelegung');sessionStorage.removeItem('cf_vorbelegung');
+      if(vb){fuelle(JSON.parse(vb));$('prefillNote').textContent='Aus dem Rechner übernommen: Pflegegrade, Zeiträume und Verhinderungspflege. Bitte die übrigen Angaben ergänzen.';$('rueckwirkend_beantragen').checked=true}
+    }catch(e){}
+  }
   starteHelferPolling();
   try{
     var res=await fetch(API+'/studio-api',{method:'POST',headers:{'Content-Type':'application/json',apikey:KEY},body:JSON.stringify({action:'intake_session_get',session:SESSION,k:HKEY})});
