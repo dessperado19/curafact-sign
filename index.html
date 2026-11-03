@@ -19,6 +19,7 @@
     <div class="cfList" id="custList"><div class="empty">Lade Kunden …</div></div>
   </aside>
   <main class="cfMain" id="detail"><div class="empty">Bitte links einen Kunden auswählen.</div></main>
+  <main class="cfMain hidden" id="viewNk" style="max-width:1100px;flex:1"></main>
   <main class="cfMain hidden" id="viewRechner" style="max-width:1100px;flex:1"></main>
   <main class="cfMain hidden" id="viewAufn" style="max-width:1100px;flex:1"></main>
   <main class="cfMain hidden" id="viewMa" style="max-width:1100px;flex:1"></main>
@@ -31,7 +32,7 @@
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="cf-aufnahme-druck.js?v=2"></script><script src="kfc.js?v=2"></script><script src="cf-calc.js?v=15"></script><script src="cf-form.js?v=15"></script><script src="cf-sig.js?v=1"></script><script src="cf-api.js?v=16"></script><script src="cf-mitarbeiter.js?v=2"></script><script src="cf-rechner.js?v=9"></script>
+<script src="cf-aufnahme-druck.js?v=2"></script><script src="kfc.js?v=2"></script><script src="cf-calc.js?v=15"></script><script src="cf-form.js?v=15"></script><script src="cf-sig.js?v=1"></script><script src="cf-api.js?v=16"></script><script src="cf-mitarbeiter.js?v=3"></script><script src="cf-rechner.js?v=9"></script>
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
@@ -41,11 +42,14 @@ window.addEventListener('beforeunload',function(e){if(editMode&&editDirty){e.pre
 document.getElementById('sideNav').innerHTML=cfSide('kunden');
 var rechnerGemountet=false;
 function ansichtVon(href){return href==='rechner.html'?'rechner':(String(href).indexOf('#aufnahmen')>=0?'aufnahmen':(String(href).indexOf('#mitarbeiter')>=0?'mitarbeiter':'kunden'))}
-function zeigeAnsicht(v){
-  if(!CFAPI.darf(v))v=startAnsicht();
+/* 'nk' = Seite „Neuer Kunde“ ohne Kundenliste (Freigabe neuer_kunde); mit Freigabe „Kunden“ läuft sie im Kundenbereich */
+function darfAnsicht(v){return v==='nk'?CFAPI.darf('neuer_kunde'):CFAPI.darf(v)}
+function zeigeAnsicht(v,ohneStart){
+  if(!darfAnsicht(v))v=startAnsicht();
   if(v!=='kunden'&&!editVerlassenOk())return;
+  if(v==='nk'&&!ohneStart){neuerKunde();return}
   var k=(v==='kunden');
-  document.querySelector('.cfRail').classList.toggle('hidden',!k);$('detail').classList.toggle('hidden',!k);$('viewRechner').classList.toggle('hidden',v!=='rechner');$('viewAufn').classList.toggle('hidden',v!=='aufnahmen');$('viewMa').classList.toggle('hidden',v!=='mitarbeiter');
+  document.querySelector('.cfRail').classList.toggle('hidden',!k);$('detail').classList.toggle('hidden',!k);$('viewNk').classList.toggle('hidden',v!=='nk');$('viewRechner').classList.toggle('hidden',v!=='rechner');$('viewAufn').classList.toggle('hidden',v!=='aufnahmen');$('viewMa').classList.toggle('hidden',v!=='mitarbeiter');
   document.querySelectorAll('#sideNav .cfNav a').forEach(function(a){a.classList.toggle('active',ansichtVon(a.getAttribute('href'))===v)});
   if(v==='rechner'&&!rechnerGemountet){rechnerGemountet=true;if(CFAPI.darf('neuer_kunde'))CFRechner.onAufnahme=function(d){neuerKunde(d)};CFRechner.mount($('viewRechner'))}
   if(v==='aufnahmen')ladeAufnahmen();
@@ -53,7 +57,7 @@ function zeigeAnsicht(v){
 }
 var maGemountet=false;
 /* Erste erlaubte Ansicht (Reihenfolge: Kunden, Rechner, Aufnahmen, Mitarbeiter) */
-function startAnsicht(){var o=['kunden','rechner','aufnahmen','mitarbeiter'];for(var i=0;i<o.length;i++)if(CFAPI.darf(o[i]))return o[i];return 'rechner'}
+function startAnsicht(){var o=['kunden','rechner','nk','aufnahmen','mitarbeiter'];for(var i=0;i<o.length;i++)if(darfAnsicht(o[i]))return o[i];return 'rechner'}
 /* Menüpunkte nach Freigabe ein-/ausblenden (der Server prüft zusätzlich bei jeder Anfrage) */
 function rechteAnwenden(){
   var nav=document.querySelector('#sideNav .cfNav');if(!nav)return;
@@ -87,9 +91,9 @@ function starteApp(){
   var wunsch=location.hash==='#rechner'?'rechner':(location.hash==='#aufnahmen'?'aufnahmen':(location.hash==='#mitarbeiter'?'mitarbeiter':startAnsicht()));
   zeigeAnsicht(wunsch);
   /* aktuelle Freigaben vom Server holen (Änderungen durch den Admin wirken so ohne neue Anmeldung) */
-  CFAPI.call('me').then(function(r){if(r&&r.ok&&r.user){CFAPI.setUser(r.user);rechteAnwenden();if(!CFAPI.darf(ansichtAktuell()))zeigeAnsicht(startAnsicht());else if(CFAPI.darf('kunden')&&!customers.length)ladeKunden()}});
+  CFAPI.call('me').then(function(r){if(r&&r.ok&&r.user){CFAPI.setUser(r.user);rechteAnwenden();if(!darfAnsicht(ansichtAktuell()))zeigeAnsicht(startAnsicht());else if(CFAPI.darf('kunden')&&!customers.length)ladeKunden()}});
 }
-function ansichtAktuell(){if(!$('viewRechner').classList.contains('hidden'))return 'rechner';if(!$('viewAufn').classList.contains('hidden'))return 'aufnahmen';if(!$('viewMa').classList.contains('hidden'))return 'mitarbeiter';return 'kunden'}
+function ansichtAktuell(){if(!$('viewNk').classList.contains('hidden'))return 'nk';if(!$('viewRechner').classList.contains('hidden'))return 'rechner';if(!$('viewAufn').classList.contains('hidden'))return 'aufnahmen';if(!$('viewMa').classList.contains('hidden'))return 'mitarbeiter';return 'kunden'}
 
 /* ---------- Kundenliste ---------- */
 async function ladeKunden(){
@@ -511,18 +515,20 @@ $('faNewBtn').onclick=function(){neuerKunde()};
 async function neuerKunde(vor){
   /* vor = Angaben aus dem Rechner (Name, Pflegegrade, Verhinderungspflege): das Formular wird damit vorausgefüllt */
   try{if(vor&&typeof vor==='object')sessionStorage.setItem('cf_vorbelegung',JSON.stringify(vor));else sessionStorage.removeItem('cf_vorbelegung')}catch(e){}
-  zeigeAnsicht('kunden');cur=null;editMode=false;renderListe();faMeldung('');
+  var imKunden=CFAPI.darf('kunden'),ziel=imKunden?$('detail'):$('viewNk');
+  if(imKunden){zeigeAnsicht('kunden');cur=null;editMode=false;renderListe()}else zeigeAnsicht('nk',true);
+  faMeldung('');
   var r;try{r=await CFAPI.call('intake_create',{label:'Neuer Kunde',customer:null})}catch(e){r=null}
-  if(!r||!r.ok){$('detail').innerHTML='<div class="note noteBad">Aufnahme konnte nicht gestartet werden: '+esc((r&&(r.message||('Status '+r.http_status)))||'keine Antwort')+'</div>';return}
+  if(!r||!r.ok){ziel.innerHTML='<div class="note noteBad">Aufnahme konnte nicht gestartet werden: '+esc((r&&(r.message||('Status '+r.http_status)))||'keine Antwort')+'</div>';return}
   var base=location.href.replace(/[?#].*$/,'').replace(/[^\/]*$/,'');
   var q='intake.html?s='+encodeURIComponent(r.session)+'&l='+encodeURIComponent('Neuer Kunde');
-  $('detail').innerHTML='<div class="cfTop"><div><h1>Neuer Kunde – Aufnahme</h1><p>'+(vor?'<b>Aus dem Rechner übernommen:</b> Pflegegrade, Zeiträume und Verhinderungspflege sind schon eingetragen – den Rest nur noch ergänzen. ':'')+'Hier direkt ausfüllen und absenden. Die Angaben bleiben unter „Aufnahmen“ sichtbar und werden von Studio automatisch als Kunde übernommen. Soll der Kunde oder ein Angehöriger es selbst ausfüllen, nutze die Fernaufnahme per Link / QR.</p></div>'+
+  ziel.innerHTML='<div class="cfTop"><div><h1>Neuer Kunde – Aufnahme</h1><p>'+(vor?'<b>Aus dem Rechner übernommen:</b> Pflegegrade, Zeiträume und Verhinderungspflege sind schon eingetragen – den Rest nur noch ergänzen. ':'')+'Hier direkt ausfüllen und absenden. Die Angaben bleiben unter „Aufnahmen“ sichtbar und werden von Studio automatisch als Kunde übernommen. Soll der Kunde oder ein Angehöriger es selbst ausfüllen, nutze die Fernaufnahme per Link / QR.</p></div>'+
     '<div class="actions"><button class="primaryBtn" id="btnNkFern" title="Erzeugt jedes Mal einen neuen Link, mit dem mehrere Personen erfasst werden können">Fernaufnahme per Link / QR</button><button id="btnNkClose">Schließen</button></div></div>'+
     '<iframe id="nkFrame" title="Aufnahme" src="'+esc(q+'&embed=1')+'" style="width:100%;height:calc(100vh - 170px);min-height:560px;border:1px solid var(--line);border-radius:18px;background:#eef4f9"></iframe>';
   /* Eigene Sitzung fuer Link/QR: sonst teilen sich Formular und Link dieselbe Aufnahme und die zweite Person ueberschreibt die erste */
   /* Jeder Klick erzeugt einen neuen Link; er gilt als Sammel-Link (mehrere Personen, z. B. Mutter und Vater) */
   $('btnNkFern').onclick=function(){startFernaufnahme('Neuer Kunde',null,true)};
-  $('btnNkClose').onclick=function(){$('detail').innerHTML='<div class="empty">Bitte links einen Kunden auswählen.</div>'};
+  $('btnNkClose').onclick=function(){ziel.innerHTML=imKunden?'<div class="empty">Bitte links einen Kunden auswählen.</div>':'<div class="empty">Aufnahme geschlossen.<br><br><button type="button" class="primaryBtn" id="btnNkNeu">Neue Aufnahme starten</button></div>';if($('btnNkNeu'))$('btnNkNeu').onclick=function(){neuerKunde()}};
 }
 
 /* ---------- Start ---------- */

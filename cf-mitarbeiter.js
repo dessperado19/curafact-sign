@@ -1,6 +1,6 @@
 /* Curafact – Mitarbeiter verwalten (nur für Admins): Konten anlegen, Bereiche der Web-Ansicht pro Person anhaken, neuer QR-Code, aktiv/inaktiv */
 var CFMa=(function(){
-  var BEREICHE=[['kunden','Kunden'],['neuer_kunde','Neuer Kunde (Link / QR)'],['aufnahmebogen','Aufnahmebogen (PDF)'],['aufnahmen','Aufnahmen'],['rechner','Rechner']];
+  var BEREICHE=[['kunden','Kunden'],['neuer_kunde','Neuer Kunde aufnehmen (Link / QR) – ohne Kundenliste'],['aufnahmebogen','Aufnahmebogen (PDF)'],['aufnahmen','Aufnahmen'],['rechner','Rechner']];
   var ROLLE={user:'Mitarbeiter',admin:'Admin',superadmin:'Superadmin'};
   var el=null,users=[],toastT=null;
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
