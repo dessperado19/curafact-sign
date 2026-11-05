@@ -143,7 +143,7 @@ var aufnDaten=[],aufnSig=[],aufnFilter={status:'alle',q:'',leer:false};
 /* Leere Links (Link offen, nichts eingetragen): in der Liste standardmäßig ausgeblendet, nach AUFN_LEER_TAGE Tagen automatisch gelöscht */
 var AUFN_LEER_TAGE=3;
 function aufnIstLeer(x){return aufnStatus(x).k==='leer'}
-function aufnLeerAbgelaufen(x){var t=aufnTs(x);return !x.mehrfach&&aufnIstLeer(x)&&!(x.helper_indexes&&x.helper_indexes.length)&&t>0&&(Date.now()-t)>AUFN_LEER_TAGE*86400000}
+function aufnLeerAbgelaufen(x){if(x.mehrfach)return x.mehrfach_bis>0&&Date.now()>(x.mehrfach_bis+AUFN_LEER_TAGE*86400)*1000;/* Sammel-Link: erst aufräumen, wenn er seit Tagen abgelaufen ist */var t=aufnTs(x);return aufnIstLeer(x)&&!(x.helper_indexes&&x.helper_indexes.length)&&t>0&&(Date.now()-t)>AUFN_LEER_TAGE*86400000}
 var aufnAufraeumenLaeuft=false;
 async function aufnAufraeumen(){
   if(aufnAufraeumenLaeuft)return 0;
