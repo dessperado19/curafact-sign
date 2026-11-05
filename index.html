@@ -43,7 +43,9 @@ document.getElementById('sideNav').innerHTML=cfSide('kunden');
 var rechnerGemountet=false;
 function ansichtVon(href){return href==='rechner.html'?'rechner':(String(href).indexOf('#aufnahmen')>=0?'aufnahmen':(String(href).indexOf('#mitarbeiter')>=0?'mitarbeiter':'kunden'))}
 /* 'nk' = Seite „Neuer Kunde“ ohne Kundenliste (Freigabe neuer_kunde); mit Freigabe „Kunden“ läuft sie im Kundenbereich */
-function darfAnsicht(v){return v==='nk'?CFAPI.darf('neuer_kunde'):CFAPI.darf(v)}
+function darfAnsicht(v){return v==='nk'?CFAPI.darf('neuer_kunde'):(v==='aufnahmen'?(CFAPI.darf('aufnahmen')||CFAPI.darf('neuer_kunde')):CFAPI.darf(v))}
+/* Ohne Freigabe „Aufnahmen“, aber mit „Neuer Kunde“: nur die selbst gestarteten Aufnahmen („Meine Aufnahmen“), ohne Löschen und Unterschriften */
+function nurEigeneAufn(){return !CFAPI.darf('aufnahmen')&&CFAPI.darf('neuer_kunde')}
 function zeigeAnsicht(v,ohneStart){
   if(!darfAnsicht(v))v=startAnsicht();
   if(v!=='kunden'&&!editVerlassenOk())return;
@@ -64,7 +66,8 @@ function rechteAnwenden(){
   if(CFAPI.istAdmin()&&!$('maNavLink')){var a=document.createElement('a');a.id='maNavLink';a.href='index.html#mitarbeiter';a.textContent='Mitarbeiter';a.addEventListener('click',function(e){e.preventDefault();zeigeAnsicht('mitarbeiter')});nav.appendChild(a)}
   [].forEach.call(nav.querySelectorAll('a,button'),function(el){
     var k=el.id==='faNewBtn'?'neuer_kunde':(el.id==='faPdfBtn'?'aufnahmebogen':(el.id==='maNavLink'?'mitarbeiter':ansichtVon(el.getAttribute('href')||'')));
-    el.classList.toggle('hidden',!CFAPI.darf(k));
+    el.classList.toggle('hidden',!darfAnsicht(k));
+    if(k==='aufnahmen'){var tn=[].filter.call(el.childNodes,function(n){return n.nodeType===3})[0];if(tn)tn.nodeValue=nurEigeneAufn()?'Meine Aufnahmen':'Aufnahmen'}
   });
 }
 (function(){var nav=document.querySelector('#sideNav .cfNav'),a=document.createElement('a');a.href='index.html#aufnahmen';a.textContent='Aufnahmen';nav.insertBefore(a,nav.children[1]||null)})();
@@ -162,11 +165,12 @@ document.addEventListener('click',function(e){
 async function ladeAufnahmen(){
   var box=$('viewAufn');
   if(!aufnDaten.length&&!aufnSig.length)box.innerHTML='<div class="cfTop"><div><h1>Aufnahmen</h1></div></div><div class="cfPanel"><div class="empty">Lade …</div></div>';
-  var r=await CFAPI.call('intake_list'),r2=await CFAPI.call('signature_list');
+  var eigene=nurEigeneAufn();
+  var r=await CFAPI.call('intake_list'),r2=eigene?null:await CFAPI.call('signature_list');
   if(!r||!r.ok){box.innerHTML='<div class="cfTop"><div><h1>Aufnahmen</h1></div></div><div class="cfPanel"><div class="empty">'+esc((r&&r.message)||'Aufnahmen konnten nicht geladen werden.')+'</div></div>';return}
   aufnDaten=(r.sessions||[]).filter(function(x){return !x.nur_mitarbeiter});
   aufnSig=(r2&&r2.ok&&r2.signatures)||[];
-  await aufnAufraeumen();
+  if(!eigene)await aufnAufraeumen();
   aufnBadge();renderListe();
   zeichneAufnahmen();
 }
@@ -188,21 +192,22 @@ function zeichneAufnahmen(){
     return true;
   });
   var leer=aufnDaten.filter(aufnIstLeer).length;
-  var h='<div class="cfTop"><div><h1>Aufnahmen</h1><p>Alle Fernaufnahmen per Link / QR, auch Entwürfe. Studio übernimmt neue Aufnahmen automatisch als Kunde; sie bleiben hier sichtbar. Links, in die nichts eingetragen wurde, sind ausgeblendet und werden nach '+AUFN_LEER_TAGE+' Tagen automatisch gelöscht.</p></div><div class="actions"><button id="aufnReload">Aktualisieren</button></div></div>';
+  var eig=nurEigeneAufn();
+  var h='<div class="cfTop"><div><h1>'+(eig?'Meine Aufnahmen':'Aufnahmen')+'</h1><p>'+(eig?'Hier siehst du die Aufnahmen, die du selbst gestartet hast (Link, QR oder direkt im Formular), auch Entwürfe. Der Status zeigt, ob Studio sie schon als Kunde übernommen hat.</p></div><div class="actions"><button id="aufnReload">Aktualisieren</button></div></div>':'Alle Fernaufnahmen per Link / QR, auch Entwürfe. Studio übernimmt neue Aufnahmen automatisch als Kunde; sie bleiben hier sichtbar. Links, in die nichts eingetragen wurde, sind ausgeblendet und werden nach '+AUFN_LEER_TAGE+' Tagen automatisch gelöscht.</p></div><div class="actions"><button id="aufnReload">Aktualisieren</button></div></div>');
   h+='<div class="cfPanel"><div class="actions" style="margin-bottom:12px"><input class="cfInput" id="aufnQ" placeholder="Name, Kasse oder Akte suchen …" style="max-width:280px" value="'+esc(aufnFilter.q)+'">'+
     '<select class="cfInput" id="aufnStatusSel" style="max-width:240px">'+[['alle','Alle Status'],['zu','Wartet auf Übernahme'],['entwurf','Entwürfe'],['uebernommen','Übernommen'],['leer','Links ohne Angaben']].map(function(o){return '<option value="'+o[0]+'"'+(aufnFilter.status===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'+
     '<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="aufnLeer"'+(aufnFilter.leer?' checked':'')+'> Leere Links zeigen ('+leer+')</label>'+
-    (leer?'<button id="aufnLeerDel">Leere Links löschen ('+leer+')</button>':'')+'</div>';
+    (leer&&!eig?'<button id="aufnLeerDel">Leere Links löschen ('+leer+')</button>':'')+'</div>';
   h+=list.length?'<div class="tablewrap"><table class="cfTable"><thead><tr><th>Name</th><th>Datum</th><th>Status</th><th>Kasse</th><th>Kunde</th><th></th></tr></thead><tbody>'+list.map(function(x){
     var st=aufnStatus(x),dk=x.imported_file?x.imported_file.replace(/\.json$/,'').replace(/_/g,' '):'';
-    return '<tr><td><strong>'+esc(x.name||x.label||'—')+'</strong>'+(x.geburtsdatum?'<br><span class="mini">'+esc(x.geburtsdatum)+'</span>':'')+'</td><td>'+esc(aufnDatum(x))+'</td><td>'+esc(st.t)+'</td><td>'+esc(x.kasse||'')+'</td><td>'+(x.imported_file?'<a href="#" class="aufnOpen" data-f="'+esc(x.imported_file)+'">'+esc(dk)+'</a>':'—')+(x.imported_kunden_id?'<br>'+kidKopieren(x.imported_kunden_id):'')+'</td>'+
-      '<td style="white-space:nowrap"><button class="aufnView" data-s="'+esc(x.session)+'"'+(x.main_received?'':' disabled')+'>Ansehen</button> <button class="aufnDel" data-s="'+esc(x.session)+'" data-n="'+esc(x.name||'')+'" data-i="'+(x.imported_file?'1':'')+'">Löschen</button></td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Aufnahmen für diese Auswahl.</div>';
+    return '<tr><td><strong>'+esc(x.name||x.label||'—')+'</strong>'+(x.geburtsdatum?'<br><span class="mini">'+esc(x.geburtsdatum)+'</span>':'')+'</td><td>'+esc(aufnDatum(x))+(x.erstellt_von&&!eig?'<br><span class="mini">von '+esc(x.erstellt_von)+'</span>':'')+'</td><td>'+esc(st.t)+'</td><td>'+esc(x.kasse||'')+'</td><td>'+(x.imported_file?(eig?esc(dk):'<a href="#" class="aufnOpen" data-f="'+esc(x.imported_file)+'">'+esc(dk)+'</a>'):'—')+(x.imported_kunden_id?'<br>'+kidKopieren(x.imported_kunden_id):'')+'</td>'+
+      '<td style="white-space:nowrap"><button class="aufnView" data-s="'+esc(x.session)+'"'+(x.main_received?'':' disabled')+'>Ansehen</button> '+(eig?'':'<button class="aufnDel" data-s="'+esc(x.session)+'" data-n="'+esc(x.name||'')+'" data-i="'+(x.imported_file?'1':'')+'">Löschen</button>')+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Aufnahmen für diese Auswahl.</div>';
   h+='<div id="aufnDetail"></div></div>';
   var sg=aufnSig;
-  h+='<div class="cfPanel"><div class="cfHead"><h2>Unterschriften per Link</h2></div><p class="mini">Jede Unterschrift hat eine Kennung und ist der Kundenakte (Kunden-ID) zugeordnet, für die der Link erzeugt wurde. Sie bleibt bis zu 60 Tage auf dem Server.</p>';
+  if(!eig){h+='<div class="cfPanel"><div class="cfHead"><h2>Unterschriften per Link</h2></div><p class="mini">Jede Unterschrift hat eine Kennung und ist der Kundenakte (Kunden-ID) zugeordnet, für die der Link erzeugt wurde. Sie bleibt bis zu 60 Tage auf dem Server.</p>';
   h+=sg.length?'<div class="tablewrap"><table class="cfTable"><thead><tr><th>Angefordert</th><th>Für</th><th>Rolle / Zweck</th><th>Status</th><th>Kennung</th></tr></thead><tbody>'+sg.map(function(x){
     return '<tr><td>'+esc(x.created_at?new Date(x.created_at).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—')+'</td><td>'+esc(x.customer_name||x.customer_file||'— (keiner Akte zugeordnet)')+(x.kunden_id?'<br>'+kidKopieren(x.kunden_id,'Kunden-ID '+String(x.kunden_id).slice(0,8)):'')+'</td><td>'+esc([x.rolle,x.label].filter(Boolean).join(' · ')||'—')+'</td><td>'+(x.received?(x.fetched_at?'Eingegangen, in Studio abgeholt':'Eingegangen'):'Link offen')+'</td><td class="mini">'+esc(String(x.token).slice(0,8))+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Unterschriften vorhanden.</div>';
-  h+='</div>';
+  h+='</div>';}
   var hadFocus=document.activeElement&&document.activeElement.id==='aufnQ';
   box.innerHTML=h;
   $('aufnReload').onclick=ladeAufnahmen;
@@ -226,7 +231,7 @@ function zeichneAufnahmen(){
 }
 /* Zähler im Menü: regelmäßig prüfen, solange die Seite sichtbar ist */
 async function aufnBadgePruefen(){
-  if(document.hidden||!CFAPI||!CFAPI.user)return;
+  if(document.hidden||!CFAPI||!CFAPI.user||nurEigeneAufn())return;
   var r=await CFAPI.call('intake_list');if(!r||!r.ok)return;
   var vorher=neueAufnahmen().length;
   aufnDaten=(r.sessions||[]).filter(function(x){return !x.nur_mitarbeiter});
