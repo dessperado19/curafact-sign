@@ -266,6 +266,53 @@ function aufnFormFuellen(fr,d,n){
   }catch(e){}
   if(n<40)setTimeout(function(){aufnFormFuellen(fr,d,n+1)},250);
 }
+/* Aufnahme mit „Mögliches Duplikat“ in die vorhandene Kundenakte übernehmen (nur Felder mit Inhalt; Name und Kunden-ID bleiben) */
+function aufnDE(v){var m=String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?m[3]+'.'+m[2]+'.'+m[1]:String(v||'')}
+function aufnTok(n){return String(n||'').toLowerCase().replace(/ä/g,'ae').replace(/ö/g,'oe').replace(/ü/g,'ue').replace(/ß/g,'ss').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ı/g,'i').split(/[^a-z0-9]+/).filter(Boolean).sort().join(' ')}
+var AUFN_FELDNAMEN={pflege_anschrift:'Anschrift',pflege_geburtsdatum:'Geburtsdatum',pflege_telefon:'Telefon',pflege_kasse:'Kasse',pflege_kvnr:'Versichertennummer',person_name:'Pflegeperson',person_anschrift:'Anschrift Pflegeperson',person_geburtsdatum:'Geburtsdatum Pflegeperson',person_verhaeltnis:'Verhältnis Pflegeperson',pflegegrade:'Pflegegrade',pflegegrad_seit_angabe:'Pflegegrad seit',entlastung_jahre:'Entlastung',verhinderungspflege:'Verhinderungspflege',pflege_sig_dataurl:'Unterschrift Kunde'};
+function aufnFeldName(k){var m=k.match(/^hilfe(\d*)_(.*)$/);if(m){var f={name:'Name',anschrift:'Anschrift',geburtsdatum:'Geburtsdatum',telefon:'Telefon',sig_dataurl:'Unterschrift'}[m[2]]||m[2];return (m[1]||'1')+'. Nachbarschaftshilfe – '+f}return AUFN_FELDNAMEN[k]||k}
+function aufnAenderungen(d,r,alt){
+  var ch={};
+  function set(k,v){if(v===undefined||v===null||String(v).trim()==='')return;if(JSON.stringify(alt[k])!==JSON.stringify(v))ch[k]=v}
+  ['pflege_anschrift','pflege_kasse','pflege_kvnr','pflege_telefon','person_name','person_anschrift','person_verhaeltnis'].forEach(function(k){set(k,d[k])});
+  set('pflege_geburtsdatum',aufnDE(d.pflege_geburtsdatum));set('person_geburtsdatum',aufnDE(d.person_geburtsdatum));
+  if(Array.isArray(d.pflegegrade)&&d.pflegegrade.length){
+    set('pflegegrade',d.pflegegrade.map(function(pg){return {stufe:String(pg.stufe||''),von:aufnDE(pg.von||''),bis:aufnDE(pg.bis||''),fortlaufend:!!pg.fortlaufend,entlastung_genommen:!!pg.entlastung_genommen}}));
+    if(d.pflegegrad_seit_angabe)set('pflegegrad_seit_angabe',d.pflegegrad_seit_angabe);
+  }
+  if(d.entlastung_jahre&&typeof d.entlastung_jahre==='object'&&Object.keys(d.entlastung_jahre).length)set('entlastung_jahre',d.entlastung_jahre);
+  if(Array.isArray(d.verhinderungspflege)&&d.verhinderungspflege.length)set('verhinderungspflege',d.verhinderungspflege.map(function(v){var o=Object.assign({},v);o.jahr=String(v.jahr||'');return o}));
+  var hs=[];
+  (d.nachbarschaftshilfen||[]).forEach(function(h,i){var ix=(+h.index||0)||(i+1);hs[ix-1]={name:h.hilfe_name,anschrift:h.hilfe_anschrift,geb:h.hilfe_geburtsdatum,tel:h.hilfe_telefon,sig:h.hilfe_sig_dataurl}});
+  (r.helpers||[]).forEach(function(x){var hd=x.data||{},ix=Math.max(1,+x.index||1),c=hs[ix-1]||{};hs[ix-1]={name:hd.hilfe_name||c.name,anschrift:hd.hilfe_anschrift||c.anschrift,geb:hd.hilfe_geburtsdatum||c.geb,tel:hd.hilfe_telefon||c.tel,sig:x.dataurl||c.sig}});
+  hs.filter(Boolean).forEach(function(h,i){
+    if(i>=9)return;var p=i===0?'hilfe':'hilfe'+(i+1);
+    set(p+'_name',h.name);set(p+'_anschrift',h.anschrift);set(p+'_geburtsdatum',aufnDE(h.geb));set(p+'_telefon',h.tel);set(p+'_sig_dataurl',h.sig);
+  });
+  set('pflege_sig_dataurl',d.pflege_sig_dataurl);
+  return ch;
+}
+async function aufnMerge(session,d,r,x){
+  var name=String(x.note||'').replace(/^Mögliches Duplikat:\s*/,''),t=aufnTok(name);
+  var cand=customers.filter(function(c){return aufnTok(c.name)===t});
+  if(cand.length!==1){alert(cand.length?'Es gibt mehrere Kunden mit diesem Namen. Bitte die richtige Akte öffnen und über „Bearbeiten“ ergänzen.':'Die vorhandene Akte „'+name+'“ wurde in der Kundenliste nicht gefunden.');return}
+  var c=cand[0],cr=await CFAPI.call('web_customer',{file:c.file});
+  if(!cr||!cr.ok){alert((cr&&cr.message)||'Akte konnte nicht geladen werden.');return}
+  var ch=aufnAenderungen(d,r,cr.customer),keys=Object.keys(ch),b=$('btnAufnMerge');
+  if(!keys.length){
+    if(!confirm('Die Aufnahme enthält nichts, was in der Akte „'+c.name+'“ noch fehlt.\n\nAls erledigt markieren?'))return;
+  }else{
+    var txt=keys.map(aufnFeldName).filter(function(v,i,a){return a.indexOf(v)===i}).join('\n• ');
+    if(!confirm('In die vorhandene Akte „'+c.name+'“ übernehmen?\n\nFolgendes wird geändert:\n• '+txt+'\n\nName und Kunden-ID bleiben. Die alten Werte werden im Verlauf gesichert. Studio zeigt die Änderung unter „Web-Änderungen“ zur Übernahme an.'))return;
+    if(b)b.disabled=true;
+    var sv=await CFAPI.call('web_customer_save',{file:c.file,changes:ch});
+    if(!sv||!sv.ok){alert((sv&&sv.message)||'Speichern fehlgeschlagen.');if(b)b.disabled=false;return}
+  }
+  try{await CFAPI.call('intake_mark',{session:session,imported_file:c.file,note:'In vorhandene Akte übernommen: '+c.name})}catch(e){}
+  curAufn='';
+  try{var l=await CFAPI.call('intake_list');if(l&&l.ok)aufnDaten=(l.sessions||[]).filter(function(a){return !a.nur_mitarbeiter})}catch(e){}
+  await ladeKunden();await oeffneKunde(c.file);aufnBadge();
+}
 async function oeffneAufnahme(session){
   if(!editVerlassenOk())return;
   editMode=false;editDirty=false;cur=null;curAufn=session;renderListe();
@@ -276,10 +323,11 @@ async function oeffneAufnahme(session){
   if(r.main.dataurl)d.pflege_sig_dataurl=r.main.dataurl;
   var x=aufnDaten.filter(function(a){return a.session===session})[0]||{};
   var q='intake.html?s='+encodeURIComponent(session)+'&l='+encodeURIComponent(x.label||d.pflege_name||'Aufnahme')+'&embed=1';
-  $('detail').innerHTML='<div class="cfTop"><div><h1>'+esc(d.pflege_name||'Neue Aufnahme')+'</h1><p>Neu, noch nicht in Studio'+(x.note?' · '+esc(x.note):'')+'</p></div><div class="actions"><button id="btnAufnZu">Schließen</button></div></div>'+
+  $('detail').innerHTML='<div class="cfTop"><div><h1>'+esc(d.pflege_name||'Neue Aufnahme')+'</h1><p>Neu, noch nicht in Studio'+(x.note?' · '+esc(x.note):'')+'</p></div><div class="actions">'+(/^Mögliches Duplikat/.test(x.note||'')&&!x.imported_file?'<button class="primaryBtn" id="btnAufnMerge" title="Die Angaben dieser Aufnahme in die schon vorhandene Kundenakte übernehmen">In vorhandene Akte übernehmen</button>':'')+'<button id="btnAufnZu">Schließen</button></div></div>'+
     '<div class="note">Hier siehst du die Angaben der Aufnahme und kannst sie ändern. Änderungen gelten, sobald du im Formular unten auf „Absenden“ klickst. Studio übernimmt die Aufnahme danach als Kunde (läuft Studio, innerhalb weniger Minuten; sonst beim nächsten Start).</div>'+
     '<iframe id="aufnFrame" title="Aufnahme" src="'+esc(q)+'" style="width:100%;height:calc(100vh - 230px);min-height:560px;border:1px solid var(--line);border-radius:18px;background:#eef4f9"></iframe>';
   $('btnAufnZu').onclick=function(){curAufn='';renderListe();$('detail').innerHTML='<div class="empty">Bitte links einen Kunden auswählen.</div>'};
+  if($('btnAufnMerge'))$('btnAufnMerge').onclick=function(){aufnMerge(session,d,r,x)};
   var fr=$('aufnFrame');
   fr.onload=function(){aufnFormFuellen(fr,d,0)};
 }
