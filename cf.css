@@ -311,3 +311,7 @@ input[type=checkbox]{border:1.5px solid #9FB0C6;border-radius:5px}
 .rcVpRow label{margin:0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .rcVpRow input{max-width:150px;padding:8px 12px;text-align:right}
 @media(max-width:700px){.rcPhGrid{grid-template-columns:1fr}}
+/* Unterschriften tauschen (Kunden bearbeiten) */
+.sigTausch{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px}
+.sigTausch label{font-weight:600;margin:0}
+.sigTausch select{max-width:240px}

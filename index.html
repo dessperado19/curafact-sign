@@ -1,5 +1,5 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=22"></head><body>
+<title>Curafact – Kunden</title><link rel="stylesheet" href="cf.css?v=23"></head><body>
 
 <div id="loginBox" class="loginWrap hidden"><div class="cfPanel">
   <img src="logo.png" alt="Curafact">
@@ -351,6 +351,40 @@ function sigBinden(key,alt){
     $('sigclear_'+key).addEventListener('click',function(){dr.classList.remove('hidden');redo.classList.add('hidden')});
   }
 }
+/* Unterschriften tauschen: zwei Felder (Kunde 'pf' oder Nachbarschaftshilfe 'h<n>') vertauschen ihre Unterschrift. Gilt erst nach „Speichern“. */
+function sigAnzeigen(key,hat){
+  var dr=$('sigdraw_'+key),redo=$('sigredo_'+key);if(!dr||!redo)return;
+  if(hat){dr.classList.add('hidden');redo.classList.remove('hidden')}else{dr.classList.remove('hidden');redo.classList.add('hidden')}
+  redo.onclick=function(){dr.classList.remove('hidden');redo.classList.add('hidden')};
+}
+function sigSetzen(key,url){
+  var c=$('sigclear_'+key);if(c)c.click();
+  if(url&&editSigs[key])editSigs[key].setDataUrl(url);
+  sigAnzeigen(key,!!url);
+}
+function sigTauschOptionen(){
+  var a=$('sigTauschA'),b=$('sigTauschB');if(!a||!b)return;
+  var va=a.value,vb=b.value,opts=[];
+  document.querySelectorAll('#sigBoxes .sigBoxE').forEach(function(bx){
+    if(bx.style.display==='none')return;
+    var k=bx.dataset.key,t=k==='pf'?'Kunde / Pflegeperson':k.slice(1)+'. Nachbarschaftshilfe';
+    if(k!=='pf'){var nm=$('h'+k.slice(1)+'_name');if(nm&&nm.value.trim())t+=' ('+nm.value.trim()+')'}
+    opts.push('<option value="'+esc(k)+'">'+esc(t)+'</option>');
+  });
+  a.innerHTML=b.innerHTML=opts.join('');
+  var keys=[].map.call(a.options,function(o){return o.value});
+  a.value=keys.indexOf(va)>=0?va:keys[0];
+  b.value=keys.indexOf(vb)>=0&&vb!==a.value?vb:(keys[1]||keys[0]);
+}
+function sigTauschen(){
+  var a=$('sigTauschA').value,b=$('sigTauschB').value;
+  if(!a||!b||a===b){alert('Bitte zwei verschiedene Felder wählen.');return}
+  var ua=editSigs[a]?editSigs[a].getDataUrl():'',ub=editSigs[b]?editSigs[b].getDataUrl():'';
+  if(!ua&&!ub){alert('In beiden Feldern ist noch keine Unterschrift.');return}
+  sigSetzen(a,ub);sigSetzen(b,ua);editDirty=true;
+  var m=document.querySelector('.sigBoxE[data-key="'+a+'"]');if(m)m.scrollIntoView({behavior:'smooth',block:'center'});
+  alert('Getauscht. Bitte unten auf „Speichern“ klicken, damit es gilt.');
+}
 function helferVorhandene(d){
   var vorh=helperPrefixe(d).filter(function(n){var p=helferPrefix(n);return d[p+'_name']||d[p+'_anschrift']||d[p+'_sig_dataurl']||d[p+'_geburtsdatum']||d[p+'_telefon']});
   return vorh.length?vorh:[1];
@@ -360,7 +394,8 @@ function helferEditHtml(d){
   return h+'<div class="actions" style="margin-top:10px"><button type="button" id="hAdd">+ weitere Nachbarschaftshilfe</button></div>';
 }
 function unterschriftenEditHtml(d){
-  return '<div id="sigBoxes">'+sigBoxHtml('pf','Unterschrift pflegebedürftige Person / Pflegeperson')+helferVorhandene(d).map(function(n){return sigBoxHtml('h'+n,'Unterschrift '+n+'. Nachbarschaftshilfe')}).join('')+'</div>'+
+  return '<div class="sigTausch"><label>Unterschriften vertauscht?</label><select id="sigTauschA"></select><span>↔</span><select id="sigTauschB"></select><button type="button" id="sigTauschBtn">Tauschen</button></div>'+
+    '<div id="sigBoxes">'+sigBoxHtml('pf','Unterschrift pflegebedürftige Person / Pflegeperson')+helferVorhandene(d).map(function(n){return sigBoxHtml('h'+n,'Unterschrift '+n+'. Nachbarschaftshilfe')}).join('')+'</div>'+
     '<p class="mini">Wird mit „Speichern“ gesichert. Studio übernimmt es nach Bestätigung (Button „Web-Änderungen“).</p>';
 }
 function helferEditBinden(d){
@@ -369,6 +404,9 @@ function helferEditBinden(d){
     var n=+slot.dataset.n;sigBinden('h'+n,d[helferPrefix(n)+'_sig_dataurl']);
     var rm=slot.querySelector('.hRemove');if(rm)rm.onclick=function(){helferEntfernen(slot)};
   });
+  sigTauschOptionen();
+  var tb=$('sigTauschBtn');if(tb)tb.onclick=sigTauschen;
+  document.querySelectorAll('#helperSlots input[id$="_name"]').forEach(function(i){i.addEventListener('change',sigTauschOptionen)});
   var add=$('hAdd');if(!add)return;
   add.onclick=function(){
     var slots=document.querySelectorAll('#helperSlots .helperSlot'),max=0;slots.forEach(function(x){max=Math.max(max,+x.dataset.n)});
@@ -376,14 +414,14 @@ function helferEditBinden(d){
     var n=max+1,holder=document.createElement('div');holder.innerHTML=helferSlotHtml(n,{},true);var slot=holder.firstChild;
     $('helperSlots').appendChild(slot);
     var hb=document.createElement('div');hb.innerHTML=sigBoxHtml('h'+n,'Unterschrift '+n+'. Nachbarschaftshilfe');$('sigBoxes').appendChild(hb.firstChild);
-    sigBinden('h'+n,'');slot.querySelector('.hRemove').onclick=function(){helferEntfernen(slot)};slot.scrollIntoView({behavior:'smooth',block:'center'});
+    sigBinden('h'+n,'');sigTauschOptionen();slot.querySelector('.hRemove').onclick=function(){helferEntfernen(slot)};slot.scrollIntoView({behavior:'smooth',block:'center'});
   };
 }
 function helferEntfernen(slot){
   if(!confirm('Diese Nachbarschaftshilfe samt Unterschrift entfernen? Gilt erst nach „Speichern“.'))return;
   slot.dataset.removed='1';slot.style.display='none';
   var sb=document.querySelector('.sigBoxE[data-key="h'+slot.dataset.n+'"]');if(sb)sb.style.display='none';
-  editDirty=true;
+  sigTauschOptionen();editDirty=true;
 }
 /* Formularwerte der Nachbarschaftshilfen und Unterschriften in die Kundendaten schreiben (neue leere Felder werden nicht angelegt) */
 function helferEinsammeln(neu,alt){
