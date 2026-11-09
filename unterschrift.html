@@ -44,7 +44,9 @@ footer{flex:none;text-align:center;padding:6px 16px 18px;color:#8aa0b5;font-size
  <div class="form">
   <h1>Bitte hier unterschreiben</h1>
   <p class="for" id="lbl">Bitte unterschreiben Sie im Feld unten.</p>
-  <div class="pad" id="pad"><canvas id="c"></canvas><div class="guide"><span>✕</span></div><div class="hint">Mit dem Finger oder einem Stift unterschreiben</div></div>
+  <div class="pad" id="pad" style="display:none"><canvas id="c"></canvas><div class="guide"><span>✕</span></div><div class="hint">Mit dem Finger oder einem Stift unterschreiben</div></div>
+  <button type="button" class="sigOpenBtn" id="sigBtn">✍ Unterschrift hinzufügen</button>
+  <div id="sigPrevBox" style="display:none;margin-top:10px;background:#fff;border:1.5px solid #c9d9e8;border-radius:14px;padding:10px;text-align:center"><img id="sigPrev" alt="Ihre Unterschrift" style="max-width:100%;max-height:150px"></div>
   <div id="msg" role="status" aria-live="polite"></div>
   <div class="actions"><button id="clearBtn" class="ghost" type="button">Neu beginnen</button><button id="okBtn" class="primary" type="button">Unterschrift abschicken</button></div>
   <p class="legal">Ihre Unterschrift wird über eine gesicherte Verbindung (HTTPS) an Curafact übertragen und für den genannten Vorgang verwendet.</p>
@@ -52,6 +54,7 @@ footer{flex:none;text-align:center;padding:6px 16px 18px;color:#8aa0b5;font-size
  <div class="done" role="status"><div class="ico">✓</div><h2>Vielen Dank!</h2><p>Ihre Unterschrift wurde übertragen.<br>Sie können dieses Fenster jetzt schließen.</p></div>
 </div></main>
 <footer>Curafact · Persönlich. Fürsorglich. An Ihrer Seite.</footer>
+<script src="cf-sigpad.js?v=1"></script>
 <script>
 const SUBMIT_URL='https://nhxofktmsawvjrzngzft.supabase.co/functions/v1/submit';
 const params=new URLSearchParams(location.search);
@@ -120,16 +123,24 @@ window.addEventListener('resize',function(){
   const keep=document.createElement('canvas');keep.width=c.width;keep.height=c.height;keep.getContext('2d').drawImage(c,0,0);
   sizeCanvas();const sc=Math.min(c.width/keep.width,c.height/keep.height);ctx.drawImage(keep,(c.width-keep.width*sc)/2,(c.height-keep.height*sc)/2,keep.width*sc,keep.height*sc);
 });
-document.getElementById('clearBtn').onclick=function(){ctx.clearRect(0,0,c.width,c.height);has=false;pad.classList.remove('has');msgEl.textContent='';msgEl.className=''};
+let sigUrl='';
+const sigBtn=document.getElementById('sigBtn');
+function sigFenster(){
+  SignaturFenster.oeffnen(LABEL?('Unterschrift – '+LABEL):'Unterschrift',function(url){
+    sigUrl=url;document.getElementById('sigPrev').src=url;document.getElementById('sigPrevBox').style.display='block';
+    sigBtn.textContent='✍ Neu unterschreiben';sigBtn.classList.add('done');msgEl.textContent='';msgEl.className='';
+  });
+}
+sigBtn.onclick=sigFenster;
+document.getElementById('clearBtn').onclick=function(){sigUrl='';document.getElementById('sigPrevBox').style.display='none';document.getElementById('sigPrev').removeAttribute('src');sigBtn.textContent='✍ Unterschrift hinzufügen';sigBtn.classList.remove('done');msgEl.textContent='';msgEl.className=''};
 function fehler(t){msgEl.textContent=t;msgEl.className='err'}
 function fertig(){document.getElementById('card').classList.add('finished')}
 document.getElementById('okBtn').onclick=async function(){
-  let ink=0;{const d=ctx.getImageData(0,0,c.width,c.height).data;for(let i=3;i<d.length;i+=4){if(d[i]>10)ink++}}
-  if(!has||ink<150){fehler('Bitte erst unterschreiben – das Feld ist noch leer.');return}
+  if(!sigUrl){fehler('Bitte erst unterschreiben – auf „Unterschrift hinzufügen“ tippen.');return}
   if(!TOKEN){fehler('Ungültiger Link (kein Token). Bitte den Link erneut öffnen.');return}
   const ok=document.getElementById('okBtn');ok.disabled=true;msgEl.textContent='Wird gesendet …';
   try{
-    const res=await fetch(SUBMIT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'signature',token:TOKEN,dataurl:c.toDataURL('image/png')})});
+    const res=await fetch(SUBMIT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'signature',token:TOKEN,dataurl:sigUrl})});
     const j=await res.json().catch(()=>({ok:false}));
     if(res.ok&&j.ok){fertig()}else{ok.disabled=false;fehler('Das Senden hat nicht geklappt ('+res.status+'). Bitte noch einmal versuchen.')}
   }catch(e){ok.disabled=false;fehler('Keine Verbindung. Bitte Internet prüfen und noch einmal versuchen.')}

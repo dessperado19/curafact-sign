@@ -32,7 +32,7 @@
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="cf-aufnahme-druck.js?v=2"></script><script src="kfc.js?v=2"></script><script src="cf-calc.js?v=15"></script><script src="cf-form.js?v=15"></script><script src="cf-sig.js?v=1"></script><script src="cf-api.js?v=16"></script><script src="cf-mitarbeiter.js?v=3"></script><script src="cf-rechner.js?v=9"></script>
+<script src="cf-aufnahme-druck.js?v=2"></script><script src="kfc.js?v=2"></script><script src="cf-calc.js?v=15"></script><script src="cf-form.js?v=15"></script><script src="cf-sigpad.js?v=1"></script><script src="cf-sig.js?v=17"></script><script src="cf-api.js?v=16"></script><script src="cf-mitarbeiter.js?v=3"></script><script src="cf-rechner.js?v=9"></script>
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
@@ -395,7 +395,7 @@ function sigBinden(key,alt){
   if(alt){
     editSigs[key].setDataUrl(alt);
     var dr=$('sigdraw_'+key),redo=$('sigredo_'+key);dr.classList.add('hidden');redo.classList.remove('hidden');
-    redo.onclick=function(){dr.classList.remove('hidden');redo.classList.add('hidden')};
+    redo.onclick=function(){editSigs[key].oeffnen()};
     $('sigclear_'+key).addEventListener('click',function(){dr.classList.remove('hidden');redo.classList.add('hidden')});
   }
 }
@@ -403,7 +403,7 @@ function sigBinden(key,alt){
 function sigAnzeigen(key,hat){
   var dr=$('sigdraw_'+key),redo=$('sigredo_'+key);if(!dr||!redo)return;
   if(hat){dr.classList.add('hidden');redo.classList.remove('hidden')}else{dr.classList.remove('hidden');redo.classList.add('hidden')}
-  redo.onclick=function(){dr.classList.remove('hidden');redo.classList.add('hidden')};
+  redo.onclick=function(){editSigs[key].oeffnen()};
 }
 function sigSetzen(key,url){
   var c=$('sigclear_'+key);if(c)c.click();

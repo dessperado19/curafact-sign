@@ -55,12 +55,29 @@ function setupSigInput(prefix){
   function resize(){var r=canvas.getBoundingClientRect();var d=Math.max(2,window.devicePixelRatio||2);canvas.width=Math.round(r.width*d);canvas.height=Math.round(r.height*d)}
   resize();
   var hasDrawing=false, uploadedDataUrl=null;
-  attachSmoothPen(canvas,{beforeDraw:function(){if(canvas.width<20)resize()},onStart:function(){hasDrawing=true;uploadedDataUrl=null}});
+  var fenster=!!window.SignaturFenster;
+  if(!fenster)attachSmoothPen(canvas,{beforeDraw:function(){if(canvas.width<20)resize()},onStart:function(){hasDrawing=true;uploadedDataUrl=null}});
 
   var fileBtn=document.getElementById('sigfilebtn_'+prefix);
   var fileInput=document.getElementById('sigfile_'+prefix);
   var fileStatus=document.getElementById('sigfilestatus_'+prefix);
   var preview=document.getElementById('sigpreview_'+prefix);
+  var openBtn=null;
+  function titel(){var b=canvas.closest('.kfBox,.sigArea,.cfPanel');var h=b&&b.querySelector('.kfBoxHead strong,h2,h3');return h?h.textContent.trim():'Unterschrift'}
+  function oeffnen(){
+    if(!fenster)return;
+    SignaturFenster.oeffnen(titel(),function(url){
+      uploadedDataUrl=url;hasDrawing=false;fileInput.value='';
+      fileStatus.textContent='Unterschrift erfasst';preview.src=url;preview.classList.remove('hidden');
+      if(openBtn){openBtn.textContent='✍ Neu unterschreiben';openBtn.classList.add('done')}
+      document.dispatchEvent(new CustomEvent('cf-sig-gesetzt',{detail:{prefix:prefix}}));
+    });
+  }
+  if(fenster){
+    canvas.style.display='none';
+    openBtn=document.createElement('button');openBtn.type='button';openBtn.className='sigOpenBtn';openBtn.textContent='✍ Unterschrift hinzufügen';
+    openBtn.onclick=oeffnen;canvas.parentNode.insertBefore(openBtn,canvas);
+  }
   fileBtn.onclick=function(){fileInput.click()};
   fileInput.onchange=function(){
     var f=fileInput.files[0];
@@ -84,6 +101,7 @@ function setupSigInput(prefix){
     fileStatus.textContent='Keine Datei ausgewählt';
     preview.classList.add('hidden');
     preview.src='';
+    if(openBtn){openBtn.textContent='✍ Unterschrift hinzufügen';openBtn.classList.remove('done')}
   };
 
   return {
@@ -96,12 +114,14 @@ function setupSigInput(prefix){
       return false;
     },
     getDataUrl:function(){return uploadedDataUrl || (hasDrawing?canvas.toDataURL('image/png'):'')},
+    oeffnen:oeffnen,
     setDataUrl:function(dataurl){
       if(!dataurl)return;
       uploadedDataUrl=dataurl;
       fileStatus.textContent='Vorhandene Unterschrift geladen';
       preview.src=dataurl;
       preview.classList.remove('hidden');
+      if(openBtn){openBtn.textContent='✍ Neu unterschreiben';openBtn.classList.add('done')}
       ctx.clearRect(0,0,canvas.width,canvas.height);
       hasDrawing=false;
     }
