@@ -201,7 +201,7 @@ function zeichneAufnahmen(){
   h+=list.length?'<div class="tablewrap"><table class="cfTable"><thead><tr><th>Name</th><th>Datum</th><th>Status</th><th>Kasse</th><th>Kunde</th><th></th></tr></thead><tbody>'+list.map(function(x){
     var st=aufnStatus(x),dk=x.imported_file?x.imported_file.replace(/\.json$/,'').replace(/_/g,' '):'';
     return '<tr><td><strong>'+esc(x.name||x.label||'—')+'</strong>'+(x.geburtsdatum?'<br><span class="mini">'+esc(x.geburtsdatum)+'</span>':'')+'</td><td>'+esc(aufnDatum(x))+(x.erstellt_von&&!eig?'<br><span class="mini">von '+esc(x.erstellt_von)+'</span>':'')+'</td><td>'+esc(st.t)+'</td><td>'+esc(x.kasse||'')+'</td><td>'+(x.imported_file?(eig?esc(dk):'<a href="#" class="aufnOpen" data-f="'+esc(x.imported_file)+'">'+esc(dk)+'</a>'):'—')+(x.imported_kunden_id?'<br>'+kidKopieren(x.imported_kunden_id):'')+'</td>'+
-      '<td style="white-space:nowrap"><button class="aufnView" data-s="'+esc(x.session)+'"'+(x.main_received?'':' disabled')+'>Ansehen</button> '+(eig?'':'<button class="aufnDel" data-s="'+esc(x.session)+'" data-n="'+esc(x.name||'')+'" data-i="'+(x.imported_file?'1':'')+'">Löschen</button>')+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Aufnahmen für diese Auswahl.</div>';
+      '<td style="white-space:nowrap"><button class="aufnView" data-s="'+esc(x.session)+'"'+(x.main_received?'':' disabled')+'>Ansehen</button> '+(x.main_received&&!x.imported_file&&!x.is_edit&&!x.mehrfach?'<button class="aufnEdit" data-s="'+esc(x.session)+'" title="Angaben im Formular ergänzen oder ändern und abschicken">Bearbeiten</button> ':'')+(eig?'':'<button class="aufnDel" data-s="'+esc(x.session)+'" data-n="'+esc(x.name||'')+'" data-i="'+(x.imported_file?'1':'')+'">Löschen</button>')+'</td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">Keine Aufnahmen für diese Auswahl.</div>';
   h+='<div id="aufnDetail"></div></div>';
   var sg=aufnSig;
   if(!eig){h+='<div class="cfPanel"><div class="cfHead"><h2>Unterschriften per Link</h2></div><p class="mini">Jede Unterschrift hat eine Kennung und ist der Kundenakte (Kunden-ID) zugeordnet, für die der Link erzeugt wurde. Sie bleibt bis zu 60 Tage auf dem Server.</p>';
@@ -223,6 +223,7 @@ function zeichneAufnahmen(){
   };
   box.querySelectorAll('.aufnOpen').forEach(function(a){a.onclick=function(e){e.preventDefault();zeigeAnsicht('kunden');oeffneKunde(a.dataset.f)}});
   box.querySelectorAll('.aufnView').forEach(function(b){b.onclick=function(){aufnAnsehen(b.dataset.s)}});
+  box.querySelectorAll('.aufnEdit').forEach(function(b){b.onclick=function(){zeigeAnsicht('kunden');oeffneAufnahme(b.dataset.s)}});
   box.querySelectorAll('.aufnDel').forEach(function(b){b.onclick=async function(){
     var wer=b.dataset.n||'diese Aufnahme';
     if(!confirm(wer+': Aufnahme wirklich löschen?'+(b.dataset.i?'\n\nDie Kundenakte in Studio bleibt unverändert.':'\n\nFalls die Angaben noch nicht in Studio übernommen wurden, gehen sie verloren.')))return;
@@ -323,7 +324,7 @@ async function oeffneAufnahme(session){
   if(r.main.dataurl)d.pflege_sig_dataurl=r.main.dataurl;
   var x=aufnDaten.filter(function(a){return a.session===session})[0]||{};
   var q='intake.html?s='+encodeURIComponent(session)+'&l='+encodeURIComponent(x.label||d.pflege_name||'Aufnahme')+'&embed=1';
-  $('detail').innerHTML='<div class="cfTop"><div><h1>'+esc(d.pflege_name||'Neue Aufnahme')+'</h1><p>Neu, noch nicht in Studio'+(x.note?' · '+esc(x.note):'')+'</p></div><div class="actions">'+(/^Mögliches Duplikat/.test(x.note||'')&&!x.imported_file?'<button class="primaryBtn" id="btnAufnMerge" title="Die Angaben dieser Aufnahme in die schon vorhandene Kundenakte übernehmen">In vorhandene Akte übernehmen</button>':'')+'<button id="btnAufnZu">Schließen</button></div></div>'+
+  $('detail').innerHTML='<div class="cfTop"><div><h1>'+esc(d.pflege_name||'Neue Aufnahme')+'</h1><p>'+(r.main.draft?'Entwurf, noch nicht abgeschickt – erst nach „Absenden“ übernimmt Studio ihn':'Neu, noch nicht in Studio')+(x.note?' · '+esc(x.note):'')+'</p></div><div class="actions">'+(/^Mögliches Duplikat/.test(x.note||'')&&!x.imported_file?'<button class="primaryBtn" id="btnAufnMerge" title="Die Angaben dieser Aufnahme in die schon vorhandene Kundenakte übernehmen">In vorhandene Akte übernehmen</button>':'')+'<button id="btnAufnZu">Schließen</button></div></div>'+
     '<div class="note">Hier siehst du die Angaben der Aufnahme und kannst sie ändern. Änderungen gelten, sobald du im Formular unten auf „Absenden“ klickst. Studio übernimmt die Aufnahme danach als Kunde (läuft Studio, innerhalb weniger Minuten; sonst beim nächsten Start).</div>'+
     '<iframe id="aufnFrame" title="Aufnahme" src="'+esc(q)+'" style="width:100%;height:calc(100vh - 230px);min-height:560px;border:1px solid var(--line);border-radius:18px;background:#eef4f9"></iframe>';
   $('btnAufnZu').onclick=function(){curAufn='';renderListe();$('detail').innerHTML='<div class="empty">Bitte links einen Kunden auswählen.</div>'};
