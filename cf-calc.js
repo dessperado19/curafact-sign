@@ -41,7 +41,8 @@ var CFC=(function(){
   }
 
   /* === Auswertung (Berechnung der Desktop-App, calculate_customer_claim) === */
-  function pflegegradBetraege(phasen,heute){
+  function pflegegradBetraege(phasen,heute,zeiten){
+    var zl=(window.KFC&&KFC.zeitenListe)?KFC.zeitenListe(zeiten):[];
     var today=noon(heute||new Date()),monthMap={};
     (phasen||[]).forEach(function(ph){
       if(!ph||typeof ph!=='object')return;
@@ -52,6 +53,7 @@ var CFC=(function(){
       if(!dVon||!dBis||dBis<dVon)return;
       var start=firstOfMonth(dVon),end=firstOfMonth(dBis);
       if(start.getFullYear()<MIN_Y)start=new Date(MIN_Y,0,1,12);
+      var cutS=new Date(today.getFullYear()-4,0,1,12);if(start<cutS)start=cutS; /* Verjährung: wie im Schreiben an die Kasse */
       for(var cur=start;cur<=end;cur=addMonths(cur,1)){
         var key=monthKey(cur),rec={stufe:stufe,ent:!!ph.entlastung_genommen,startedAt:dVon},prev=monthMap[key];
         if(!prev||rec.startedAt>prev.startedAt)monthMap[key]=rec;
@@ -62,12 +64,13 @@ var CFC=(function(){
       var rec=monthMap[key],y=parseInt(key.split('-')[0],10),yc=PFLEGEGELD_TBL[y]?y:MAX_Y;
       var pg=(PFLEGEGELD_TBL[yc]||{})[rec.stufe]||0,psl=(PSL_TBL[yc]||{})[rec.stufe]||0,entl=ENTL_TBL[yc]||0;
       var ohne=0.4*psl+0.6*pg,mit=ohne+entl,used=(rec.ent?ohne:mit)-pg;
+      var fk=zl.length?KFC.monatFaktor(y,parseInt(key.split('-')[1],10),zl):1;if(fk<=0)return;
       var k=rec.stufe+'|'+y;
       var cur=agg[k]||(agg[k]={stufe:rec.stufe,jahr:y,monate:0,pflegegeld_100:pg,zukunftsbetrag_mit_entlastung:mit,zukunftsbetrag_ohne_entlastung:ohne,monat_betrag_mit_entlastung:mit-pg,monat_betrag_ohne_entlastung:ohne-pg,monat_betrag:used,gesamt:0});
-      cur.monate+=1;cur.monat_betrag=used;cur.gesamt+=used;
+      cur.monate+=fk;cur.monat_betrag=used;cur.gesamt+=used*fk;
     });
     var details=Object.keys(agg).map(function(k){return agg[k]}).sort(function(a,b){return a.jahr-b.jahr||a.stufe-b.stufe}).map(function(x){
-      var o={};Object.keys(x).forEach(function(k){o[k]=typeof x[k]==='number'?Math.round(x[k]):x[k]});return o;
+      var o={};Object.keys(x).forEach(function(k){o[k]=typeof x[k]==='number'?(k==='monate'?Math.round(x[k]*100)/100:Math.round(x[k])):x[k]});return o;
     });
     var total=Math.round(details.reduce(function(s,d){return s+(d.gesamt||0)},0));
     return {details:details,total:total};
@@ -89,6 +92,7 @@ var CFC=(function(){
     (rows||[]).forEach(function(r){
       if(!r||typeof r!=='object')return;
       var jahr=String(r.jahr==null?'':r.jahr).trim(),betrag=parseMoney(r.betrag),genommen=!!r.genommen,def=vpDefaultAmount(jahr);
+      var jn=parseInt(jahr,10);if(jn&&jn<new Date().getFullYear()-1)return; /* Verhinderungspflege: nur aktuelles Jahr und Vorjahr */
       var manual=genommen&&betrag>0&&Math.abs(betrag-def)>0.009,counts=(!genommen&&betrag>0)||manual;
       if(jahr||betrag){out.push({jahr:jahr,genommen:genommen,betrag:Math.round((counts?betrag:0)*100)/100,start:r.start||'',ende:r.ende||'',zaehlt:counts});if(counts)total+=betrag}
     });
@@ -96,25 +100,27 @@ var CFC=(function(){
   }
   function berechne(data,abzugPct,heute){
     data=data||{};
-    var pg=pflegegradBetraege(data.pflegegrade,heute),vp=vpBetraege(data.verhinderungspflege);
+    var pg=pflegegradBetraege(data.pflegegrade,heute,data.zeiten_ohne_anspruch),vp=vpBetraege(data.verhinderungspflege);
     var pct=parseFloat(String(abzugPct==null?(data.abzug_prozent||'0'):abzugPct).replace(',','.'));if(isNaN(pct))pct=0;
     var brutto=Math.round((pg.total+vp.total)*100)/100,abzug=Math.round(brutto*pct)/100,netto=Math.round((brutto-abzug)*100)/100;
-    return {ok:true,details:pg.details,sumPG:pg.total,total:pg.total,vpRows:vp.rows,sumVP:vp.total,abzugPct:pct,abzug:abzug,brutto:brutto,netto:netto,
+    return {ok:true,ohneAnspruch:(Array.isArray(data.zeiten_ohne_anspruch)?data.zeiten_ohne_anspruch:[]),details:pg.details,sumPG:pg.total,total:pg.total,vpRows:vp.rows,sumVP:vp.total,abzugPct:pct,abzug:abzug,brutto:brutto,netto:netto,
       kunde:{name:data.pflege_name||'',anschrift:data.pflege_anschrift||'',kvnr:data.pflege_kvnr||'',kasse:data.pflege_kasse||''}};
   }
   function auswertungHtml(r,heute){
     var k=r.kunde||{};
     var vpRows=(r.vpRows||[]).map(function(x){return '<tr><td>'+esc(x.jahr)+'</td><td>'+esc(x.start||'')+'</td><td>'+esc(x.ende||'')+'</td><td class="num">'+deMoney(x.betrag)+'</td></tr>'}).join('')||'<tr><td colspan="4" class="small muted">Keine Verhinderungspflege eingetragen.</td></tr>';
-    var pgRows=(r.details||[]).map(function(d){return '<tr><td>PG '+esc(d.stufe)+'</td><td>'+esc(d.jahr)+'</td><td class="num">'+esc(d.monate)+'</td><td class="num">'+deMoney(d.pflegegeld_100)+'</td><td class="num">'+deMoney(d.zukunftsbetrag_mit_entlastung)+'</td><td class="num">'+deMoney(d.zukunftsbetrag_ohne_entlastung)+'</td><td class="num">'+deMoney(d.monat_betrag)+'</td><td class="num">'+deMoney(d.gesamt)+'</td></tr>'}).join('')||'<tr><td colspan="8" class="small muted">Keine anrechenbaren Pflegegrad-Phasen.</td></tr>';
+    var pgRows=(r.details||[]).map(function(d){return '<tr><td>PG '+esc(d.stufe)+'</td><td>'+esc(d.jahr)+'</td><td class="num">'+esc(String(d.monate).replace('.',','))+'</td><td class="num">'+deMoney(d.pflegegeld_100)+'</td><td class="num">'+deMoney(d.zukunftsbetrag_mit_entlastung)+'</td><td class="num">'+deMoney(d.zukunftsbetrag_ohne_entlastung)+'</td><td class="num">'+deMoney(d.monat_betrag)+'</td><td class="num">'+deMoney(d.gesamt)+'</td></tr>'}).join('')||'<tr><td colspan="8" class="small muted">Keine anrechenbaren Pflegegrad-Phasen.</td></tr>';
+    var zh=(r.ohneAnspruch&&r.ohneAnspruch.length)?'<div class="calcBox"><h4>Zeiten ohne Anspruch (nicht berücksichtigt)</h4><p class="small">'+r.ohneAnspruch.map(function(z){return esc(z.von)+' – '+esc(z.bis)+(z.grund?' ('+esc(z.grund)+')':'')}).join('<br>')+'</p><p class="small muted">Es zählen nur die Tage mit Anspruch (Tage in Deutschland); die Monate sind entsprechend anteilig gerechnet. Ab- und Rückreisetag gelten als Auslandstage.</p></div>':'';
     var t=heute||new Date(),dstr=String(t.getDate()).padStart(2,'0')+'.'+String(t.getMonth()+1).padStart(2,'0')+'.'+t.getFullYear();
     return '<div class="calcPrint"><div class="calcHead"><div><h3>Auswertung – '+esc(k.name||'—')+'</h3><p>'+esc(k.anschrift||'')+'</p><p>'+esc(k.kasse||'')+(k.kvnr?' · KVNR: '+esc(k.kvnr):'')+'</p></div><div class="muted">Stand: '+dstr+'</div></div>'+
     '<div class="calcBox"><h4>Verhinderungspflege / Kurzzeitpflege (Restbeträge)</h4><table class="calcTable"><thead><tr><th>Jahr</th><th>Von</th><th>Bis</th><th class="num">Restbetrag (€)</th></tr></thead><tbody>'+vpRows+'</tbody><tfoot><tr><td colspan="3" class="num"><b>Summe</b></td><td class="num"><b>'+deMoney(r.sumVP)+'</b></td></tr></tfoot></table><p class="small muted">Standard: 2021–2024 = 2.418 €; ab 2025 = 3.539 €.</p></div>'+
     '<div class="calcBox"><h4>Pflegegrade – Detaillierte Berechnung</h4><table class="calcTable detailed"><thead><tr><th>PG</th><th>Jahr</th><th class="num">Monate</th><th class="num">Aktuelles PG (100%)</th><th class="num">Zukunftsbetrag (mit)</th><th class="num">Zukunftsbetrag (ohne)</th><th class="num">Monatlich Rückwirkend</th><th class="num">Gesamt Rückwirkend</th></tr></thead><tbody>'+pgRows+'</tbody><tfoot><tr><td colspan="7" class="num"><b>Summe Rückwirkend</b></td><td class="num"><b>'+deMoney(r.sumPG)+'</b></td></tr></tfoot></table></div>'+
-    '<div class="calcBox summaryCalc"><table class="calcTable"><tbody><tr><td>Gesamt Rückwirkend</td><td class="num"><b>'+deMoney(r.sumPG)+'</b></td></tr><tr><td>+ Verhinderungspflege</td><td class="num"><b>'+deMoney(r.sumVP)+'</b></td></tr><tr class="brutto"><td><b>= Bruttogesamt</b></td><td class="num"><b>'+deMoney(r.brutto)+'</b></td></tr><tr class="abzug"><td><b>Abzug ('+deMoney(r.abzugPct)+' %)</b></td><td class="num"><b>− '+deMoney(r.abzug)+'</b></td></tr><tr class="netto"><td><b>Nettogesamt</b></td><td class="num"><b>'+deMoney(r.netto)+'</b></td></tr></tbody></table></div></div>';
+    zh+'<div class="calcBox summaryCalc"><table class="calcTable"><tbody><tr><td>Gesamt Rückwirkend</td><td class="num"><b>'+deMoney(r.sumPG)+'</b></td></tr><tr><td>+ Verhinderungspflege</td><td class="num"><b>'+deMoney(r.sumVP)+'</b></td></tr><tr class="brutto"><td><b>= Bruttogesamt</b></td><td class="num"><b>'+deMoney(r.brutto)+'</b></td></tr><tr class="abzug"><td><b>Abzug ('+deMoney(r.abzugPct)+' %)</b></td><td class="num"><b>− '+deMoney(r.abzug)+'</b></td></tr><tr class="netto"><td><b>Nettogesamt</b></td><td class="num"><b>'+deMoney(r.netto)+'</b></td></tr></tbody></table></div></div>';
   }
 
   /* === Nachweis (Zukünftig / Rückwirkend / Referenztabelle / Rechtsgrundlagen) – unverändert aus dem bisherigen Portal === */
-  function rechnePflegegrade(phasen,heute){
+  function rechnePflegegrade(phasen,heute,zeiten){
+    var zl=(window.KFC&&KFC.zeitenListe)?KFC.zeitenListe(zeiten):[];
     var today=noon(heute||new Date()),todayMonth=firstOfMonth(today),cutoff=new Date(today.getFullYear()-4,0,1,12),monthMap={};
     (phasen||[]).forEach(function(ph){
       var stufe=Number(ph.stufe)||2,dVon=parseDE(ph.von),dBis=today;
@@ -131,12 +137,12 @@ var CFC=(function(){
       var rec=monthMap[key],p=key.split('-'),j=+p[0],m=+p[1],jc=PFLEGEGELD_TBL[j]?j:MAX_Y;
       var pg=(PFLEGEGELD_TBL[jc]||{})[rec.stufe]||0,psl=(PSL_TBL[jc]||{})[rec.stufe]||0,entl=ENTL_TBL[jc]||0;
       var ohne=0.4*psl+0.6*pg,mit=ohne+entl,bMit=mit-pg,bOhne=ohne-pg,delta=rec.ent?bOhne:bMit,md=new Date(j,m-1,1,12);
-      if(md<todayMonth){if(md>=cutoff){sum+=delta;past.push({jahr:j,monat:m,stufe:rec.stufe,monat_betrag:delta})}}
+      if(md<todayMonth){if(md>=cutoff){var fk=zl.length?KFC.monatFaktor(j,m,zl):1;if(fk>0){sum+=delta*fk;past.push({jahr:j,monat:m,stufe:rec.stufe,monat_betrag:delta,faktor:fk})}}}
       else if(!future||md>=future._md){future={_md:md,jahr:j,stufe:rec.stufe,pflegegeld:pg,pflegegeld_nach_umwandlung:0.6*pg,umwandlungsbetrag:0.4*psl,entlastungsleistung:entl,gesamt_mit:mit,gesamt_ohne:ohne,monat_betrag_mit:bMit,monat_betrag_ohne:bOhne,monat_betrag:delta}}
     });
     past.sort(function(a,b){return a.jahr-b.jahr||a.monat-b.monat});
     var gm={},go=[];
-    past.forEach(function(d){var key=d.jahr+'|'+Math.round(d.monat_betrag*100),g=gm[key];if(!g){g=gm[key]={jahr:d.jahr,monate:0,betragProMonat:d.monat_betrag,summe:0};go.push(key)}g.monate+=1;g.summe+=d.monat_betrag});
+    past.forEach(function(d){var key=d.jahr+'|'+Math.round(d.monat_betrag*100),g=gm[key];if(!g){g=gm[key]={jahr:d.jahr,monate:0,betragProMonat:d.monat_betrag,summe:0};go.push(key)}var fk=d.faktor==null?1:d.faktor;g.monate+=fk;g.summe+=d.monat_betrag*fk});
     return {futureRate:future,sumRueckwirkend:sum,pastDetails:past,pastGrouped:go.map(function(k){return gm[k]}),cutoffYear:cutoff.getFullYear()};
   }
   function referenzTabelle(){
@@ -152,8 +158,8 @@ var CFC=(function(){
     return '<div class="refTableWrap"><table class="calcTable"><thead>'+head+'</thead><tbody>'+row('Pflegegeld','pg')+row('Pflegesachleistung','psl')+blank+row('Umwandlung (zweckgebunden)','umwandlung')+row('Pflegegeld nach Umwandlung (frei verwendbar)','pgNachUmwandlung')+row('Entlastungsleistung (zweckgebunden)','entl')+total('Gesamt Zukünftig','gesamtZukuenftig')+row('Gesamt Zukünftig ohne Entlastung','gesamtZukuenftigOhne')+blank+row('Monatlich mehr möglich für die Pflege','mehrMoeglich')+row('Monatlich mehr möglich für die Pflege, ohne Entlastungsleistung','mehrMoeglichOhne')+'</tbody></table></div><p class="mini" style="font-size:11px;color:#889;margin-top:6px">Werte für '+jahr+', Referenzwerte pro Pflegegrad - unabhängig von den oben eingetragenen individuellen Zeiträumen.</p>';
   }
   function nachweisHtml(c,rueckwirkend,paragraphen,heute){
-    var res=rechnePflegegrade(c.pflegegrade||[],heute),vpSum=0;
-    (Array.isArray(c.verhinderungspflege)?c.verhinderungspflege:[]).forEach(function(v){if(v.genommen)return;var raw=String(v.betrag||'').replace(',','.').trim();vpSum+=raw?(Number(raw)||0):0});
+    var res=rechnePflegegrade(c.pflegegrade||[],heute,c.zeiten_ohne_anspruch),vpSum=0;
+    (Array.isArray(c.verhinderungspflege)?c.verhinderungspflege:[]).forEach(function(v){if(v.genommen)return;var vj=parseInt(v.jahr,10);if(vj&&vj<new Date().getFullYear()-1)return;var raw=String(v.betrag||'').replace(',','.').trim();vpSum+=raw?(Number(raw)||0):0});
     var h='<div class="calcHead"><div><h3>'+esc(c.pflege_name||'—')+'</h3><p class="mini">'+esc(c.pflege_kasse||'')+'</p></div></div>';
     if(res.futureRate){var f=res.futureRate;
       h+='<div class="calcBox"><h4>Zukünftig</h4>'+

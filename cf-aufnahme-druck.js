@@ -23,9 +23,9 @@ var CFAufnahmeDruck=(function(){
     return h;
   }
 
-  function jahrTab(werte){
+  function jahrTab(werte,ab){
     return '<table class="tab"><tr><th style="width:70px">Jahr</th><th>genommen</th><th>nicht genommen</th><th style="width:48%">Weiteres (Zeitraum, Betrag, Anbieter …)</th></tr>'+
-      jahre().map(function(y){var w=werte[y];return '<tr><td class="j">'+y+'</td><td>'+box(w&&w.genommen===true)+'</td><td>'+box(w&&w.genommen===false)+'</td><td>'+esc(w?w.notiz:'')+'</td></tr>'}).join('')+'</table>';
+      jahre().filter(function(y){return !ab||y>=ab}).map(function(y){var w=werte[y];return '<tr><td class="j">'+y+'</td><td>'+box(w&&w.genommen===true)+'</td><td>'+box(w&&w.genommen===false)+'</td><td>'+esc(w?w.notiz:'')+'</td></tr>'}).join('')+'</table>';
   }
   function entlastungWerte(d){
     var out={},saved=(d.entlastung_jahre&&typeof d.entlastung_jahre==='object')?d.entlastung_jahre:null;
@@ -90,7 +90,7 @@ var CFAufnahmeDruck=(function(){
     var p2=kopf+
       sec(4,'Pflegeperson','(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)','<div class="grid">'+f('Name, Vorname',d.person_name,8)+f('Geburtsdatum',d.person_geburtsdatum,4)+f('Anschrift (Straße, PLZ, Ort)',d.person_anschrift,8)+f('Verhältnis (z. B. Ehefrau, Sohn)',d.person_verhaeltnis,4)+'</div>')+
       sec(5,'Nachbarschaftshilfe','',(hs.length?hs:[{}]).map(function(h,i){return (hs.length>1?'<div class="h2name">'+(i+1)+'. Nachbarschaftshilfe</div>':'')+'<div class="grid">'+f('Name, Vorname',h.name,8)+f('Geburtsdatum',h.geb,4)+f('Anschrift (Straße, PLZ, Ort)',h.anschrift,8)+f('Telefon',h.tel,4)+'</div>'}).join(''))+
-      sec(6,'Verhinderungspflege / Kurzzeitpflege','– bitte je Jahr ankreuzen',jahrTab(vpWerte(d)))+
+      sec(6,'Verhinderungspflege / Kurzzeitpflege','– bitte je Jahr ankreuzen',jahrTab(vpWerte(d),new Date().getFullYear()-1))+
       foot(2);
     var sigList=sigBox(sigPflege,'Unterschrift pflegebedürftige Person / Pflegeperson')+(hs.length?hs:[{}]).map(function(h,i){return sigBox(h.sig||'','Unterschrift '+(hs.length>1?(i+1)+'. ':'')+'Nachbarschaftshilfe')}).join('');
     var abz=String(d.abzug_prozent||'').trim();

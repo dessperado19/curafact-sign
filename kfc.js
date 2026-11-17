@@ -95,7 +95,24 @@ var KFC=(function(){
     });
     return out;
   }
-  return {parse:parse,fmt:fmt,phasenZuForm:phasenZuForm,formZuPhasen:formZuPhasen,START_JAHR:START_JAHR,mk:mk};
+  /* Zeiten ohne Anspruch (z. B. Auslandsaufenthalt): [{von,bis,grund}]; beide Randtage zählen als Auslandstage.
+     monatFaktor = Anteil der Tage eines Monats mit Anspruch (Tage in Deutschland / Tage im Monat). */
+  function zeitenListe(z){
+    var out=[];
+    (Array.isArray(z)?z:[]).forEach(function(e){
+      if(!e||typeof e!=='object')return;
+      var v=parse(e.von,false),b=parse(e.bis,true);
+      if(v&&b&&b>=v)out.push({von:v,bis:b,grund:String(e.grund||'')});
+    });
+    return out;
+  }
+  function monatFaktor(y,m,liste){
+    if(!liste||!liste.length)return 1;
+    var n=letzterTag(y,m),aus=0;
+    for(var d=1;d<=n;d++){var t=mk(y,m,d);for(var i=0;i<liste.length;i++){if(t>=liste[i].von&&t<=liste[i].bis){aus++;break}}}
+    return (n-aus)/n;
+  }
+  return {parse:parse,fmt:fmt,phasenZuForm:phasenZuForm,formZuPhasen:formZuPhasen,START_JAHR:START_JAHR,mk:mk,zeitenListe:zeitenListe,monatFaktor:monatFaktor};
 })();
 
 /* Datumsfelder: Punkte automatisch setzen (Ziffernblock am iPhone hat keinen Punkt; auch bei Einfügen/Diktat/Autofill).

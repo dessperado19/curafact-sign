@@ -315,3 +315,9 @@ input[type=checkbox]{border:1.5px solid #9FB0C6;border-radius:5px}
 .sigTausch{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px}
 .sigTausch label{font-weight:600;margin:0}
 .sigTausch select{max-width:240px}
+
+/* Zeiten ohne Anspruch */
+.kfZeit{display:grid;grid-template-columns:150px 150px 1fr 34px;gap:8px;margin:6px 0;align-items:center}
+.kfZeit input{border:1px solid #C3CEDF;border-radius:8px;padding:10px;background:#fff;color:var(--text);font:inherit}
+.kfZeit input:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 3px var(--ring)}
+@media(max-width:640px){.kfZeit{grid-template-columns:1fr 1fr}.kfZeitGrund{grid-column:1/-1}.kfZeit input{font-size:16px}}

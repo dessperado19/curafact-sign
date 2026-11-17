@@ -37,9 +37,9 @@ var CFForm=(function(){
       c.checked=ys.every(function(y){var r=root.querySelector('.kfEntRow[data-j="'+y+'"] input[value=g]');return !!(r&&r.checked)});
     });
   }
-  function jahrTabelle(prefix,werte,hinweis){
+  function jahrTabelle(prefix,werte,hinweis,ab){
     var h='<table class="kfTab"><tr><th style="width:90px">Jahr</th><th>genommen</th><th>nicht genommen</th><th style="width:48%">Weiteres (Zeitraum, Betrag, Anbieter …)</th></tr>';
-    jahre().forEach(function(y){
+    jahre().filter(function(y){return !ab||y>=ab}).forEach(function(y){
       var w=werte[y]||{},g=w.genommen!==false;
       h+='<tr class="'+prefix+'Row" data-j="'+y+'" data-bekannt="'+(w.bekannt?'1':'0')+'"><td class="kfJ">'+y+'</td><td><input type="radio" name="'+prefix+'_'+y+'" value="g"'+(g?' checked':'')+'></td><td><input type="radio" name="'+prefix+'_'+y+'" value="n"'+(!g?' checked':'')+'></td><td><input class="kfNote" value="'+esc(w.notiz||'')+'" placeholder="'+esc(w.hinweis||'')+'"></td></tr>';
     });
@@ -85,7 +85,16 @@ var CFForm=(function(){
   }
   function pflegegradHtml(d){var pg=pgBlock(d);return {html:'<div class="kfGrid" id="kfPgBlock">'+pg.html+'</div>',form:pg.form}}
   function entHtml(d,form){return '<div id="kfEntBlock">'+jahrTabelle('kfEnt',entWerte(d,form),'Nicht Angegebenes gilt als „genommen“. Ab 2026 „nicht genommen“ heißt: der Betrag wird mit zurückgerechnet.')+'</div>'}
-  function vpHtml(d){return '<div id="kfVpBlock">'+jahrTabelle('kfVp',vpWerte(d),'„Nicht genommen“ legt für das Jahr den Standardbetrag (2.418 € bis 2024, 3.539 € ab 2025) und den üblichen Zeitraum an.')+'</div>'}
+  function vpHtml(d){return '<div id="kfVpBlock">'+jahrTabelle('kfVp',vpWerte(d),'„Nicht genommen“ legt für das Jahr den Standardbetrag (2.418 € bis 2024, 3.539 € ab 2025) und den üblichen Zeitraum an.',heute().getFullYear()-1)+'</div>'}
+  /* Zeiten ohne Anspruch (z. B. Auslandsaufenthalt): nur die Tage mit Anspruch zählen */
+  function zeitZeile(z){
+    z=z||{};
+    return '<div class="kfZeit"><input class="kfZeitVon" placeholder="von (TT.MM.JJJJ)" value="'+esc(z.von||'')+'"><input class="kfZeitBis" placeholder="bis (TT.MM.JJJJ)" value="'+esc(z.bis||'')+'"><input class="kfZeitGrund" placeholder="Grund, z. B. Aufenthalt in der Türkei" value="'+esc(z.grund||'')+'"><button type="button" class="kfX kfZeitDel" title="entfernen">&times;</button></div>';
+  }
+  function zeitenHtml(d){
+    var z=Array.isArray(d.zeiten_ohne_anspruch)?d.zeiten_ohne_anspruch:[];
+    return '<details class="kfDet" id="kfZeiten"'+(z.length?' open':'')+'><summary>Zeiten ohne Anspruch (z. B. Auslandsaufenthalt)</summary><p class="mini">In diesen Zeiträumen besteht kein Anspruch. Die Berechnung zählt nur die Tage mit Anspruch (Tage in Deutschland); angebrochene Monate werden anteilig gerechnet. Ab- und Rückreisetag zählen als Auslandstage.</p><div id="kfZeitListe">'+z.map(zeitZeile).join('')+'</div><div class="actions"><button type="button" id="kfZeitAdd">+ Zeitraum</button></div></details>';
+  }
   function abzugHtml(d){
     return '<div class="kfAbz"><span>Abzug</span><button type="button" class="kfAbzBtn" data-d="-5" title="5 % weniger">&minus;</button><input id="f_abzug_prozent" value="'+esc(d.abzug_prozent||'40')+'" inputmode="decimal"><span>%</span><button type="button" class="kfAbzBtn" data-d="5" title="5 % mehr">+</button></div>';
   }
@@ -101,6 +110,12 @@ var CFForm=(function(){
       var sync=function(e){var z=e.target.closest&&e.target.closest('.kfPgF');if(!z)return;if(e.target.classList.contains('kfPgFEnt')||e.target.classList.contains('kfPgFVon')||e.target.classList.contains('kfPgFBis'))zeileEntSetzen(root,z)};
       fr.addEventListener('change',sync);fr.addEventListener('input',sync);
       fr.addEventListener('click',function(e){var x=e.target.closest&&e.target.closest('.kfX');if(x){x.closest('.kfPgF').remove();dirty.pg=true;ch()}});
+    }
+    var zl=root.querySelector('#kfZeitListe');
+    if(zl){
+      zl.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.kfZeitDel');if(b){b.closest('.kfZeit').remove();ch()}});
+      zl.addEventListener('input',ch);zl.addEventListener('change',ch);
+      var za=root.querySelector('#kfZeitAdd');if(za)za.onclick=function(){zl.insertAdjacentHTML('beforeend',zeitZeile({}));ch()};
     }
     var ent=root.querySelector('#kfEntBlock');if(ent)ent.addEventListener('change',function(){zeilenEntLesen(root)});
     var add=root.querySelector('#kf_pg_add');if(add)add.onclick=function(){root.querySelector('#kf_pg_frueher').insertAdjacentHTML('beforeend',frueherZeile({}));dirty.pg=true;ch()};
@@ -147,6 +162,17 @@ var CFForm=(function(){
       });
       data.verhinderungspflege=rows;
     }
+    if(root.querySelector('#kfZeitListe')){
+      var zr=[];
+      [].slice.call(root.querySelectorAll('.kfZeit')).forEach(function(row,i){
+        var v=row.querySelector('.kfZeitVon').value.trim(),b=row.querySelector('.kfZeitBis').value.trim(),g=row.querySelector('.kfZeitGrund').value.trim();
+        if(!v&&!b&&!g)return;
+        var pv=K.parse(v,false),pb=K.parse(b,true);
+        if(!pv||!pb||pb<pv)throw new Error('Zeit ohne Anspruch (Zeile '+(i+1)+'): „von“ und „bis“ müssen gültige Daten sein (bis nicht vor von). Nichts gespeichert.');
+        var o={von:K.fmt(pv),bis:K.fmt(pb)};if(g)o.grund=g;zr.push(o);
+      });
+      if(zr.length)data.zeiten_ohne_anspruch=zr;else delete data.zeiten_ohne_anspruch;
+    }
     var ab=root.querySelector('#f_abzug_prozent');if(ab)data.abzug_prozent=ab.value;
     return data;
   }
@@ -156,5 +182,5 @@ var CFForm=(function(){
     Object.keys(neu||{}).forEach(function(k){if(JSON.stringify(neu[k])!==JSON.stringify((alt||{})[k]))out[k]=neu[k]});
     return out;
   }
-  return {personHtml:personHtml,pflegepersonHtml:pflegepersonHtml,pflegegradHtml:pflegegradHtml,entHtml:entHtml,vpHtml:vpHtml,abzugHtml:abzugHtml,bind:bind,collect:collect,geaendert:geaendert,jahre:jahre,vpDefaultPeriod:vpDefaultPeriod};
+  return {personHtml:personHtml,pflegepersonHtml:pflegepersonHtml,pflegegradHtml:pflegegradHtml,entHtml:entHtml,zeitenHtml:zeitenHtml,vpHtml:vpHtml,abzugHtml:abzugHtml,bind:bind,collect:collect,geaendert:geaendert,jahre:jahre,vpDefaultPeriod:vpDefaultPeriod};
 })();
