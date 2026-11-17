@@ -23,7 +23,7 @@ var CFRechner=(function(){
         '<div class="kfF" style="grid-column:span 8"><label>Anschrift (optional)</label><input id="f_pflege_anschrift" value=""></div>'+
         '<div class="kfF" style="grid-column:span 4"><label>Versichertennummer (optional)</label><input id="f_pflege_kvnr" value=""></div></div>';
       var pg=CFForm.pflegegradHtml(d);
-      q('pg').innerHTML=pg.html;q('ent').innerHTML=CFForm.entHtml(d,pg.form);q('vp').innerHTML=CFForm.vpHtml(d);q('abz').innerHTML=CFForm.abzugHtml(d);
+      q('pg').innerHTML=pg.html;q('ent').innerHTML=CFForm.entHtml(d,pg.form)+CFForm.zeitenHtml(d);q('vp').innerHTML=CFForm.vpHtml(d);q('abz').innerHTML=CFForm.abzugHtml(d);
       CFForm.bind(root,geaendert);
       root.querySelectorAll('.wizardSteps [data-jump]').forEach(function(s){s.onclick=function(){var t=root.querySelector('[data-a="'+s.dataset.jump+'"]');if(t)t.scrollIntoView({behavior:'smooth',block:'start'})}});
       rechnen();
@@ -51,7 +51,7 @@ var CFRechner=(function(){
     var C=CFC,F=CFForm,esc=C.esc,JAHRE=F.jahre(),J0=JAHRE[0];
     function pad(n){return String(n).padStart(2,'0')}
     function neuePhase(vor){return {stufe:vor?vor.stufe:'',vJahr:'',vMon:'1',bis:'heute',bJahr:'',bMon:'12',ent:true}}
-    var st={name:'',phasen:[neuePhase()],vpOffen:{},vpBetrag:{},pct:'40'};
+    var st={name:'',phasen:[neuePhase()],zeiten:[],vpOffen:{},vpBetrag:{},pct:'40'};
     function eur2(n){return Number(n||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'}
     function pz(x){return String(Math.round(x*100)/100).replace('.',',')+' %'}
     /* ---- Zeiträume ---- */
@@ -78,7 +78,8 @@ var CFRechner=(function(){
         var per=F.vpDefaultPeriod(y,C.vpDefaultAmount(y));
         vp.push({jahr:String(y),genommen:false,betrag:String(betrag),start:per.start,ende:per.ende});
       });
-      return {pflege_name:st.name,pflegegrade:g.map(function(x){return {stufe:x.stufe,von:x.von,bis:x.bis,fortlaufend:x.fortlaufend,entlastung_genommen:x.ent}}),verhinderungspflege:vp,abzug_prozent:st.pct};
+      var zt=[];st.zeiten.forEach(function(z){var a=KFC.parse(z.von,false),b=KFC.parse(z.bis,true);if(a&&b&&b>=a)zt.push({von:KFC.fmt(a),bis:KFC.fmt(b),grund:z.grund||''})});
+      return {zeiten_ohne_anspruch:zt,pflege_name:st.name,pflegegrade:g.map(function(x){return {stufe:x.stufe,von:x.von,bis:x.bis,fortlaufend:x.fortlaufend,entlastung_genommen:x.ent}}),verhinderungspflege:vp,abzug_prozent:st.pct};
     }
     function proJahr(r){
       var m={};
@@ -138,6 +139,7 @@ var CFRechner=(function(){
           g.map(function(x){return '<li>Pflegegrad '+esc(x.stufe)+': '+esc(zeitText(x))+' – Entlastungsbetrag '+(x.ent?'genutzt':'nicht genutzt')+'</li>'}).join('')+
           (r.vpRows&&r.vpRows.length?'<li>Verhinderungspflege / Kurzzeitpflege offen in: '+r.vpRows.filter(function(x){return x.betrag>0}).map(function(x){return esc(x.jahr)}).join(', ')+'</li>':'')+
         '</ul>'+
+        ((r.ohneAnspruch&&r.ohneAnspruch.length)?'<p class="hinweis"><b>Zeiten ohne Anspruch (nicht berücksichtigt, tageweise gerechnet):</b> '+r.ohneAnspruch.map(function(z){return esc(z.von)+' – '+esc(z.bis)+(z.grund?' ('+esc(z.grund)+')':'')}).join('; ')+'. Ab- und Rückreisetag gelten als Auslandstage.</p>':'')+
         '<p class="hinweis">Unverbindliche Berechnung auf Grundlage Ihrer Angaben und der jeweils geltenden Beträge. Gerechnet wird höchstens ab 01.01.'+J0+' (Verjährung). Die tatsächliche Höhe stellt die Pflegekasse fest.</p>'+
       '</div>';
     }
@@ -159,6 +161,7 @@ var CFRechner=(function(){
         '<div class="rcRow"><label for="rcName">Name</label><input id="rcName" class="cfInput" type="text" autocomplete="off" placeholder="Name der pflegebedürftigen Person"></div>'+
         '<div data-r="phasen"></div>'+
         '<div class="actions" style="margin:0 0 6px"><button type="button" data-r="addPh">+ weiteren Zeitraum</button></div>'+
+        '<div class="rcRow" style="margin-top:14px"><label>Zeiten ohne Anspruch (z. B. Aufenthalt im Ausland)</label><div data-r="zeiten"></div><div class="actions" style="margin:0"><button type="button" data-r="addZeit">+ Zeitraum ohne Anspruch</button></div><p class="mini">Es zählen nur die Tage mit Anspruch (Tage in Deutschland); angebrochene Monate werden anteilig gerechnet. Ab- und Rückreisetag zählen als Auslandstage.</p></div>'+
         '<p class="mini" data-r="phHinweis">Hat sich der Pflegegrad geändert oder wurde der Entlastungsbetrag nur zeitweise genutzt (z. B. die ersten 6 Monate)? Dann einfach einen weiteren Zeitraum anlegen.</p>'+
         '<div class="rcRow" data-r="vpRow" style="margin-top:18px"><label>Verhinderungspflege / Kurzzeitpflege – in diesen Jahren <b>nicht</b> genutzt</label><div class="rcChips" data-r="vp"></div><div data-r="vpBetraege"></div><div class="mini">Nur angetippte Jahre werden gerechnet. Voreingestellt ist der volle Jahresbetrag; bei teilweiser Nutzung den offenen Restbetrag eintragen.</div></div>'+
         '<div class="rcRow rcPct"><label for="rcPct">Unser Anteil in %</label><input id="rcPct" class="cfInput" type="text" inputmode="decimal" value="40"></div>'+
@@ -166,8 +169,11 @@ var CFRechner=(function(){
       '<div class="cfPanel rcPanel" data-r="res"></div>';
     function q(n){return el.querySelector('[data-r="'+n+'"]')}
     function zeichnePhasen(){q('phasen').innerHTML=st.phasen.map(phaseHtml).join('')}
+    function zeichneZeiten(){
+      q('zeiten').innerHTML=st.zeiten.map(function(z,i){return '<div class="kfZeit" data-zi="'+i+'"><input data-zf="von" placeholder="von (TT.MM.JJJJ)" value="'+esc(z.von||'')+'"><input data-zf="bis" placeholder="bis (TT.MM.JJJJ)" value="'+esc(z.bis||'')+'"><input data-zf="grund" placeholder="Grund, z. B. Türkei" value="'+esc(z.grund||'')+'"><button type="button" class="kfX" data-zdel="'+i+'" title="entfernen">&times;</button></div>'}).join('');
+    }
     function zeichneVp(){
-      var y0=startJahr(),jahre=y0?JAHRE.filter(function(y){return y>=y0}):[];
+      var y0=startJahr(),vpAb=new Date().getFullYear()-1,jahre=y0?JAHRE.filter(function(y){return y>=y0&&y>=vpAb}):[];
       q('vp').innerHTML=jahre.map(function(y){return '<button type="button" class="rcChip'+(st.vpOffen[y]?' on':'')+'" data-y="'+y+'">'+y+'</button>'}).join('')||'<span class="mini">Bitte erst Pflegegrad und Beginn wählen.</span>';
       q('vpBetraege').innerHTML=jahre.filter(function(y){return st.vpOffen[y]}).map(function(y){
         var v=st.vpBetrag[y]!=null?st.vpBetrag[y]:eur2(C.vpDefaultAmount(y)).replace(' €','');
@@ -194,7 +200,7 @@ var CFRechner=(function(){
       q('print').onclick=function(){C.drucken(druckHtml(r,zeilen,g),'Curafact Übersicht')};
       if(q('aufnahme'))q('aufnahme').onclick=function(){api.onAufnahme(daten())};
     }
-    function alles(){zeichnePhasen();zeichneVp();rechnen()}
+    function alles(){zeichnePhasen();zeichneZeiten();zeichneVp();rechnen()}
     /* Ereignisse */
     var phBox=q('phasen');
     phBox.addEventListener('click',function(e){
@@ -209,6 +215,9 @@ var CFRechner=(function(){
       if(f==='vJahr'||f==='vMon'||f==='bJahr'||f==='bMon'||f==='bis'){/* offene Jahre vor dem Beginn entfernen */var y0=startJahr();Object.keys(st.vpOffen).forEach(function(y){if(y0&&+y<y0)delete st.vpOffen[y]})}
       zeichneVp();rechnen();
     });
+    q('addZeit').onclick=function(){st.zeiten.push({von:'',bis:'',grund:''});zeichneZeiten()};
+    q('zeiten').addEventListener('input',function(e){var r=e.target.closest('[data-zf]');if(!r)return;var i=+r.closest('.kfZeit').dataset.zi;st.zeiten[i][r.dataset.zf]=r.value;rechnen()});
+    q('zeiten').addEventListener('click',function(e){var b=e.target.closest('[data-zdel]');if(!b)return;st.zeiten.splice(+b.dataset.zdel,1);zeichneZeiten();rechnen()});
     q('addPh').onclick=function(){
       var last=st.phasen[st.phasen.length-1];
       var p=neuePhase(last);
@@ -219,7 +228,7 @@ var CFRechner=(function(){
     q('vpBetraege').addEventListener('input',function(e){var i=e.target.closest('[data-vpb]');if(!i)return;st.vpBetrag[i.dataset.vpb]=i.value;rechnen()});
     el.querySelector('#rcName').oninput=function(){st.name=this.value;rechnen()};
     el.querySelector('#rcPct').oninput=function(){st.pct=this.value.replace(',','.');rechnen()};
-    el.querySelector('[data-r="reset"]').onclick=function(){if(!confirm('Alle Eingaben löschen?'))return;st={name:'',phasen:[neuePhase()],vpOffen:{},vpBetrag:{},pct:'40'};el.querySelector('#rcName').value='';el.querySelector('#rcPct').value='40';alles()};
+    el.querySelector('[data-r="reset"]').onclick=function(){if(!confirm('Alle Eingaben löschen?'))return;st={name:'',phasen:[neuePhase()],zeiten:[],vpOffen:{},vpBetrag:{},pct:'40'};el.querySelector('#rcName').value='';el.querySelector('#rcPct').value='40';alles()};
     el.querySelector('[data-r="voll"]').onclick=function(){mountVoll(el)};
     alles();
   }

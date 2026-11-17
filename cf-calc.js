@@ -55,6 +55,7 @@ var CFC=(function(){
       if(start.getFullYear()<MIN_Y)start=new Date(MIN_Y,0,1,12);
       var cutS=new Date(today.getFullYear()-4,0,1,12);if(start<cutS)start=cutS; /* Verjährung: wie im Schreiben an die Kasse */
       for(var cur=start;cur<=end;cur=addMonths(cur,1)){
+        if(cur.getFullYear()===today.getFullYear()&&cur.getMonth()===today.getMonth()&&today.getDate()<24)continue; /* laufender Monat zählt erst ab dem 24. (wie in Studio) */
         var key=monthKey(cur),rec={stufe:stufe,ent:!!ph.entlastung_genommen,startedAt:dVon},prev=monthMap[key];
         if(!prev||rec.startedAt>prev.startedAt)monthMap[key]=rec;
       }
@@ -137,8 +138,9 @@ var CFC=(function(){
       var rec=monthMap[key],p=key.split('-'),j=+p[0],m=+p[1],jc=PFLEGEGELD_TBL[j]?j:MAX_Y;
       var pg=(PFLEGEGELD_TBL[jc]||{})[rec.stufe]||0,psl=(PSL_TBL[jc]||{})[rec.stufe]||0,entl=ENTL_TBL[jc]||0;
       var ohne=0.4*psl+0.6*pg,mit=ohne+entl,bMit=mit-pg,bOhne=ohne-pg,delta=rec.ent?bOhne:bMit,md=new Date(j,m-1,1,12);
-      if(md<todayMonth){if(md>=cutoff){var fk=zl.length?KFC.monatFaktor(j,m,zl):1;if(fk>0){sum+=delta*fk;past.push({jahr:j,monat:m,stufe:rec.stufe,monat_betrag:delta,faktor:fk})}}}
-      else if(!future||md>=future._md){future={_md:md,jahr:j,stufe:rec.stufe,pflegegeld:pg,pflegegeld_nach_umwandlung:0.6*pg,umwandlungsbetrag:0.4*psl,entlastungsleistung:entl,gesamt_mit:mit,gesamt_ohne:ohne,monat_betrag_mit:bMit,monat_betrag_ohne:bOhne,monat_betrag:delta}}
+      var laufend=md.getTime()===todayMonth.getTime()&&today.getDate()>=24;
+      if(md<todayMonth||laufend){if(md>=cutoff){var fk=zl.length?KFC.monatFaktor(j,m,zl):1;if(fk>0){sum+=delta*fk;past.push({jahr:j,monat:m,stufe:rec.stufe,monat_betrag:delta,faktor:fk})}}}
+      if(md>=todayMonth&&(!future||md>=future._md)){future={_md:md,jahr:j,stufe:rec.stufe,pflegegeld:pg,pflegegeld_nach_umwandlung:0.6*pg,umwandlungsbetrag:0.4*psl,entlastungsleistung:entl,gesamt_mit:mit,gesamt_ohne:ohne,monat_betrag_mit:bMit,monat_betrag_ohne:bOhne,monat_betrag:delta}}
     });
     past.sort(function(a,b){return a.jahr-b.jahr||a.monat-b.monat});
     var gm={},go=[];
