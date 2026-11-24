@@ -1,5 +1,5 @@
 /* Curafact – Formularbausteine wie im Kundenformular der Desktop-App (kf_ui.js), ohne App-Abhängigkeiten.
-   Abschnitte: Person, Pflegegrad (aktuell + früher, Entlastung genommen), Entlastungsbetrag je Jahr, Verhinderungspflege je Jahr,
+   Abschnitte: Person, Pflegegrad (aktuell + früher, je Zeile Haken Entlastungsbetrag genommen), Verhinderungspflege je Jahr,
    Berechnung (Abzug %). Datenformat = Kunden-JSON der Desktop-App (pflegegrade[], entlastung_jahre{}, verhinderungspflege[] …). */
 var CFForm=(function(){
   var K=KFC,C=CFC;
@@ -12,7 +12,7 @@ var CFForm=(function(){
     z=z||{};
     return '<div class="kfPgF"><select class="kfPgFSt"><option value="">PG …</option>'+[1,2,3,4,5].map(function(n){return '<option value="'+n+'"'+(String(z.stufe)===String(n)?' selected':'')+'>PG '+n+'</option>'}).join('')+'</select>'+
       '<input class="kfPgFVon" placeholder="von (MM.JJJJ)" value="'+esc(z.von||'')+'"><input class="kfPgFBis" placeholder="bis (MM.JJJJ)" value="'+esc(z.bis||'')+'">'+
-      '<label class="kfPgEnt" title="Für die Jahre dieses Zeitraums wird der Entlastungsbetrag als genommen gerechnet"><input type="checkbox" class="kfPgFEnt"> Entlastungsbetrag genommen</label><button type="button" class="kfX" title="Zeile entfernen">&times;</button></div>';
+      '<label class="kfPgEnt" title="Für den Zeitraum dieses Pflegegrads wird der Entlastungsbetrag als genommen gerechnet"><input type="checkbox" class="kfPgFEnt"'+(z.ent===false?'':' checked')+'> Entlastungsbetrag genommen</label><button type="button" class="kfX" title="Zeile entfernen">&times;</button></div>';
   }
   function pgBlock(data){
     var f=K.phasenZuForm(Array.isArray(data.pflegegrade)?data.pflegegrade:[],heute());
@@ -20,22 +20,9 @@ var CFForm=(function(){
     var h='<div class="kfF" style="grid-column:span 12"><label>Aktueller Pflegegrad (bitte wählen)</label><div class="kfPgBtns">'+[1,2,3,4,5].map(function(n){return '<button type="button" class="kfPgBtn'+(String(n)===st?' on':'')+'" data-st="'+n+'">PG '+n+'</button>'}).join('')+'<input type="hidden" id="kf_pg_aktuell" value="'+esc(st)+'"></div></div>';
     h+=feld('kf_pg_seit','Gilt seit (TT.MM.JJJJ, Monat und Jahr genügen)',seit,6,'placeholder="z. B. 01.05.2024 oder 05.2024"');
     h+=feld('kf_pg_bis','Bis (nur ausfüllen, wenn beendet)',a.bis||'',6,'placeholder="leer = läuft noch"');
-    h+='<div class="kfF" style="grid-column:span 12"><label>Hatte die Person früher einen anderen Pflegegrad?</label><div id="kf_pg_frueher">'+f.frueher.map(frueherZeile).join('')+'</div><div class="actions"><button type="button" id="kf_pg_add">+ früheren Pflegegrad eintragen</button></div><p class="mini">Gerechnet wird höchstens ab 01.01.2022 (Verjährung). Ein früherer Beginn wird beim Speichern darauf gekürzt.</p></div>';
+    h+='<div class="kfF" style="grid-column:span 12"><label class="kfPgEnt" title="Für den Zeitraum dieses Pflegegrads wird der Entlastungsbetrag als genommen gerechnet"><input type="checkbox" id="kf_pg_ent"'+(f.aktuell?(f.aktuell.ent?' checked':''):' checked')+'> Entlastungsbetrag genommen</label></div>';
+    h+='<div class="kfF" style="grid-column:span 12"><label>Hatte die Person früher einen anderen Pflegegrad?</label><div id="kf_pg_frueher">'+f.frueher.map(frueherZeile).join('')+'</div><div class="actions"><button type="button" id="kf_pg_add">+ früheren Pflegegrad eintragen</button></div><p class="mini">Gerechnet wird höchstens ab 01.01.2022 (Verjährung). Ein früherer Beginn wird beim Speichern darauf gekürzt. Der Haken „Entlastungsbetrag genommen“ gilt je Zeile für genau deren Zeitraum; ohne Angabe gilt „genommen“.</p></div>';
     return {html:h,form:f};
-  }
-  function zeileJahre(z){
-    var v=K.parse(z.querySelector('.kfPgFVon').value,false),b=K.parse(z.querySelector('.kfPgFBis').value,true);
-    if(!v||!b)return [];var o=[];for(var y=Math.max(K.START_JAHR,v.getFullYear());y<=b.getFullYear();y++)o.push(y);return o;
-  }
-  function zeileEntSetzen(root,z){
-    var g=z.querySelector('.kfPgFEnt').checked;
-    zeileJahre(z).forEach(function(y){var tr=root.querySelector('.kfEntRow[data-j="'+y+'"]');if(!tr)return;var r=tr.querySelector('input[value="'+(g?'g':'n')+'"]');if(r){r.checked=true;tr.dataset.touched='1'}});
-  }
-  function zeilenEntLesen(root){
-    [].slice.call(root.querySelectorAll('.kfPgF')).forEach(function(z){
-      var ys=zeileJahre(z),c=z.querySelector('.kfPgFEnt');if(!c||!ys.length)return;
-      c.checked=ys.every(function(y){var r=root.querySelector('.kfEntRow[data-j="'+y+'"] input[value=g]');return !!(r&&r.checked)});
-    });
   }
   function jahrTabelle(prefix,werte,hinweis,ab){
     var h='<table class="kfTab"><tr><th style="width:90px">Jahr</th><th>genommen</th><th>nicht genommen</th><th style="width:48%">Weiteres (Zeitraum, Betrag, Anbieter …)</th></tr>';
@@ -44,16 +31,6 @@ var CFForm=(function(){
       h+='<tr class="'+prefix+'Row" data-j="'+y+'" data-bekannt="'+(w.bekannt?'1':'0')+'"><td class="kfJ">'+y+'</td><td><input type="radio" name="'+prefix+'_'+y+'" value="g"'+(g?' checked':'')+'></td><td><input type="radio" name="'+prefix+'_'+y+'" value="n"'+(!g?' checked':'')+'></td><td><input class="kfNote" value="'+esc(w.notiz||'')+'" placeholder="'+esc(w.hinweis||'')+'"></td></tr>';
     });
     return h+'</table>'+(hinweis?'<p class="mini">'+hinweis+'</p>':'');
-  }
-  function entWerte(data,form){
-    var out={},saved=(data.entlastung_jahre&&typeof data.entlastung_jahre==='object')?data.entlastung_jahre:{};
-    jahre().forEach(function(y){
-      var s=saved[y];
-      if(s&&typeof s==='object')out[y]={genommen:s.genommen!==false,notiz:s.notiz||'',bekannt:true};
-      else if(form.ent[y]!==undefined)out[y]={genommen:!!form.ent[y],notiz:'',bekannt:true};
-      else out[y]={genommen:true,notiz:'',bekannt:false};
-    });
-    return out;
   }
   function vpWerte(data){
     var out={};
@@ -84,7 +61,6 @@ var CFForm=(function(){
       feld('f_person_anschrift','Anschrift (Straße, PLZ, Ort) – oder „wie oben“',d.person_anschrift,8)+feld('f_person_verhaeltnis','Verhältnis (z. B. Ehefrau, Sohn)',d.person_verhaeltnis,4)+'</div>';
   }
   function pflegegradHtml(d){var pg=pgBlock(d);return {html:'<div class="kfGrid" id="kfPgBlock">'+pg.html+'</div>',form:pg.form}}
-  function entHtml(d,form){return '<div id="kfEntBlock">'+jahrTabelle('kfEnt',entWerte(d,form),'Nicht Angegebenes gilt als „genommen“. Ab 2026 „nicht genommen“ heißt: der Betrag wird mit zurückgerechnet.')+'</div>'}
   function vpHtml(d){return '<div id="kfVpBlock">'+jahrTabelle('kfVp',vpWerte(d),'„Nicht genommen“ legt für das Jahr den Standardbetrag (2.418 € bis 2024, 3.539 € ab 2025) und den üblichen Zeitraum an.',heute().getFullYear()-1)+'</div>'}
   /* Zeiten ohne Anspruch (z. B. Auslandsaufenthalt): nur die Tage mit Anspruch zählen */
   function zeitZeile(z){
@@ -104,11 +80,8 @@ var CFForm=(function(){
     var dirty=root._cfDirty={pg:false};
     var ch=function(){if(onChange)onChange()};
     root.querySelectorAll('.kfPgBtn').forEach(function(b){b.onclick=function(){root.querySelectorAll('.kfPgBtn').forEach(function(x){x.classList.toggle('on',x===b)});root.querySelector('#kf_pg_aktuell').value=b.dataset.st;dirty.pg=true;ch()}});
-    zeilenEntLesen(root);
     var fr=root.querySelector('#kf_pg_frueher');
     if(fr){
-      var sync=function(e){var z=e.target.closest&&e.target.closest('.kfPgF');if(!z)return;if(e.target.classList.contains('kfPgFEnt')||e.target.classList.contains('kfPgFVon')||e.target.classList.contains('kfPgFBis'))zeileEntSetzen(root,z)};
-      fr.addEventListener('change',sync);fr.addEventListener('input',sync);
       fr.addEventListener('click',function(e){var x=e.target.closest&&e.target.closest('.kfX');if(x){x.closest('.kfPgF').remove();dirty.pg=true;ch()}});
     }
     var zl=root.querySelector('#kfZeitListe');
@@ -117,10 +90,9 @@ var CFForm=(function(){
       zl.addEventListener('input',ch);zl.addEventListener('change',ch);
       var za=root.querySelector('#kfZeitAdd');if(za)za.onclick=function(){zl.insertAdjacentHTML('beforeend',zeitZeile({}));ch()};
     }
-    var ent=root.querySelector('#kfEntBlock');if(ent)ent.addEventListener('change',function(){zeilenEntLesen(root)});
     var add=root.querySelector('#kf_pg_add');if(add)add.onclick=function(){root.querySelector('#kf_pg_frueher').insertAdjacentHTML('beforeend',frueherZeile({}));dirty.pg=true;ch()};
-    ['kfPgBlock','kfEntBlock'].forEach(function(id){var el=root.querySelector('#'+id);if(el){el.addEventListener('input',function(){dirty.pg=true;ch()});el.addEventListener('change',function(){dirty.pg=true;ch()})}});
-    root.querySelectorAll('.kfVpRow input, .kfEntRow input').forEach(function(i){var f=function(){i.closest('tr').dataset.touched='1';ch()};i.addEventListener('change',f);i.addEventListener('input',f)});
+    ['kfPgBlock'].forEach(function(id){var el=root.querySelector('#'+id);if(el){el.addEventListener('input',function(){dirty.pg=true;ch()});el.addEventListener('change',function(){dirty.pg=true;ch()})}});
+    root.querySelectorAll('.kfVpRow input').forEach(function(i){var f=function(){i.closest('tr').dataset.touched='1';ch()};i.addEventListener('change',f);i.addEventListener('input',f)});
     root.querySelectorAll('.kfF input,.kfF select,.kfF textarea').forEach(function(i){i.addEventListener('input',ch)});
     root.querySelectorAll('.kfAbzBtn').forEach(function(b){b.onclick=function(){var i=root.querySelector('#f_abzug_prozent');var v=parseFloat(String(i.value).replace(',','.'))||0;v=Math.max(0,Math.min(100,v+Number(b.dataset.d)));i.value=String(v).replace('.',',');ch()}});
     var ab=root.querySelector('#f_abzug_prozent');if(ab)ab.addEventListener('input',ch);
@@ -136,13 +108,18 @@ var CFForm=(function(){
     if(root.querySelector('#kf_pg_aktuell')){
       var pgDirty=(root._cfDirty&&root._cfDirty.pg)||!(Array.isArray(data.pflegegrade)&&data.pflegegrade.length)||root.dataset.pgDirty==='1';
       if(pgDirty){
-        var fr=[].slice.call(root.querySelectorAll('.kfPgF')).map(function(z){return {stufe:z.querySelector('.kfPgFSt').value,von:z.querySelector('.kfPgFVon').value,bis:z.querySelector('.kfPgFBis').value}});
-        var ent={},entJ={};
-        [].slice.call(root.querySelectorAll('.kfEntRow')).forEach(function(tr){
-          var y=tr.dataset.j,g=tr.querySelector('input[value=g]').checked;ent[y]=g;
-          var note=tr.querySelector('.kfNote').value;entJ[y]={genommen:g};if(note)entJ[y].notiz=note;
-        });
-        data.pflegegrade=K.formZuPhasen({stufe:val(root,'kf_pg_aktuell'),von:val(root,'kf_pg_seit'),bis:val(root,'kf_pg_bis')},fr,ent,heute());
+        var fr=[].slice.call(root.querySelectorAll('.kfPgF')).map(function(z){return {stufe:z.querySelector('.kfPgFSt').value,von:z.querySelector('.kfPgFVon').value,bis:z.querySelector('.kfPgFBis').value,ent:z.querySelector('.kfPgFEnt').checked}});
+        var entEl=root.querySelector('#kf_pg_ent');
+        data.pflegegrade=K.formZuPhasen({stufe:val(root,'kf_pg_aktuell'),von:val(root,'kf_pg_seit'),bis:val(root,'kf_pg_bis'),ent:entEl?entEl.checked:true},fr,heute());
+        /* entlastung_jahre nur noch abgeleitet (für Ausdruck/Studio): Jahr = genommen, wenn alle Pflegegrade dieses Jahres "genommen" haben; bisherige Notizen bleiben */
+        var entJ={},altJ=(old&&old.entlastung_jahre&&typeof old.entlastung_jahre==='object')?old.entlastung_jahre:{};
+        for(var yy=K.START_JAHR;yy<=heute().getFullYear();yy++){
+          var j0=K.mk(yy,1,1),j1=K.mk(yy,12,31),fl=[];
+          data.pflegegrade.forEach(function(p){var v=K.parse(p.von,false),e=p.bis?K.parse(p.bis,true):K.mk(2100,12,31);if(v&&v<=j1&&e>=j0)fl.push(!!p.entlastung_genommen)});
+          if(!fl.length)continue;
+          entJ[yy]={genommen:fl.every(function(x){return x})};
+          if(altJ[yy]&&altJ[yy].notiz)entJ[yy].notiz=altJ[yy].notiz;
+        }
         data.entlastung_jahre=entJ;
         if(val(root,'kf_pg_seit'))data.pflegegrad_seit_angabe=val(root,'kf_pg_seit');
       }
@@ -182,5 +159,5 @@ var CFForm=(function(){
     Object.keys(neu||{}).forEach(function(k){if(JSON.stringify(neu[k])!==JSON.stringify((alt||{})[k]))out[k]=neu[k]});
     return out;
   }
-  return {personHtml:personHtml,pflegepersonHtml:pflegepersonHtml,pflegegradHtml:pflegegradHtml,entHtml:entHtml,zeitenHtml:zeitenHtml,vpHtml:vpHtml,abzugHtml:abzugHtml,bind:bind,collect:collect,geaendert:geaendert,jahre:jahre,vpDefaultPeriod:vpDefaultPeriod};
+  return {personHtml:personHtml,pflegepersonHtml:pflegepersonHtml,pflegegradHtml:pflegegradHtml,zeitenHtml:zeitenHtml,vpHtml:vpHtml,abzugHtml:abzugHtml,bind:bind,collect:collect,geaendert:geaendert,jahre:jahre,vpDefaultPeriod:vpDefaultPeriod};
 })();

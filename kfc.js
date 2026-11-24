@@ -26,14 +26,12 @@ var KFC=(function(){
   }
   function tag(d,n){var r=new Date(d.getFullYear(),d.getMonth(),d.getDate()+n,12);return r}
   function stufeStr(s){var x=String(s==null?'':s).replace(/PG|Pflegegrad/gi,'').trim();return x}
-  /* Bestehende Phasen -> Formularansicht */
+  /* Bestehende Phasen -> Formularansicht. Jede Zeile (auch die aktuelle) hat ihren eigenen Haken "Entlastungsbetrag genommen". */
   function phasenZuForm(phasen,heute){
-    heute=heute||mk(new Date().getFullYear(),new Date().getMonth()+1,new Date().getDate());
     var liste=[];
     (phasen||[]).forEach(function(ph){
       if(!ph||typeof ph!=='object')return;
       var von=parse(ph.von,false),bisE=parse(ph.bis,true);
-      var bis=bisE||(ph.fortlaufend?null:undefined);
       if(!von)return;
       if(bisE===null&&!ph.fortlaufend&&String(ph.bis||'').trim()==='')return; /* ohne Ende und ohne "fortlaufend": rechnet das Programm nicht */
       liste.push({stufe:stufeStr(ph.stufe),von:von,bis:bisE,fort:!bisE,ent:!!ph.entlastung_genommen});
@@ -42,56 +40,37 @@ var KFC=(function(){
     var merged=[];
     liste.forEach(function(p){
       var l=merged[merged.length-1];
-      if(l&&l.stufe===p.stufe&&l.bis&&p.von<=tag(l.bis,1)){ if(!p.bis){l.bis=null;l.fort=true} else if(p.bis>l.bis){l.bis=p.bis} }
-      else if(l&&l.stufe===p.stufe&&!l.bis){ /* l läuft noch: p liegt darin */ }
-      else merged.push({stufe:p.stufe,von:p.von,bis:p.bis,fort:p.fort});
+      /* nur gleiche Stufe UND gleicher Haken werden zusammengefasst */
+      if(l&&l.stufe===p.stufe&&l.ent===p.ent&&l.bis&&p.von<=tag(l.bis,1)){ if(!p.bis){l.bis=null;l.fort=true} else if(p.bis>l.bis){l.bis=p.bis} }
+      else if(l&&l.stufe===p.stufe&&l.ent===p.ent&&!l.bis){ /* l läuft noch: p liegt darin */ }
+      else merged.push({stufe:p.stufe,von:p.von,bis:p.bis,fort:p.fort,ent:p.ent});
     });
-    var res={aktuell:null,frueher:[],ent:{},mixed:false};
+    var res={aktuell:null,frueher:[]};
     if(merged.length){
       var a=merged[merged.length-1];
-      res.aktuell={stufe:a.stufe,von:fmt(a.von),bis:a.bis?fmt(a.bis):''};
-      res.frueher=merged.slice(0,-1).map(function(m){return {stufe:m.stufe,von:fmt(m.von),bis:m.bis?fmt(m.bis):''}});
-    }
-    for(var y=START_JAHR;y<=heute.getFullYear();y++){
-      var j0=mk(y,1,1),j1=mk(y,12,31),flags=[];
-      liste.forEach(function(p){var e=p.bis||mk(2100,12,31);if(p.von<=j1&&e>=j0)flags.push(p.ent)});
-      if(!flags.length)continue;
-      if(flags.every(function(f){return f}))res.ent[y]=true;
-      else if(flags.every(function(f){return !f}))res.ent[y]=false;
-      else{res.ent[y]=false;res.mixed=true}
+      res.aktuell={stufe:a.stufe,von:fmt(a.von),bis:a.bis?fmt(a.bis):'',ent:a.ent};
+      res.frueher=merged.slice(0,-1).map(function(m){return {stufe:m.stufe,von:fmt(m.von),bis:m.bis?fmt(m.bis):'',ent:m.ent}});
     }
     return res;
   }
-  /* Formular -> Phasen (an Jahresgrenzen aufgeteilt, wenn sich "Entlastung genommen" ändert) */
-  function formZuPhasen(aktuell,frueher,ent,heute){
-    heute=heute||mk(new Date().getFullYear(),new Date().getMonth()+1,new Date().getDate());
+  /* Formular -> Phasen. Der Haken jeder Zeile gilt genau für ihren Zeitraum (kein Jahresraster mehr); fehlt er, gilt "genommen". */
+  function formZuPhasen(aktuell,frueher,heute){
     var start=mk(START_JAHR,1,1),raw=[];
+    function flag(e){return e===undefined||e===null?true:!!e}
     (frueher||[]).forEach(function(f){
       var von=parse(f.von,false),bis=parse(f.bis,true),st=stufeStr(f.stufe);
-      if(!st||!von||!bis)return;raw.push({stufe:st,von:von,bis:bis});
+      if(!st||!von||!bis)return;raw.push({stufe:st,von:von,bis:bis,ent:flag(f.ent)});
     });
     if(aktuell&&stufeStr(aktuell.stufe)){
       var von=parse(aktuell.von,false),abis=parse(aktuell.bis,true);
-      if(von)raw.push({stufe:stufeStr(aktuell.stufe),von:von,bis:abis||null});
+      if(von)raw.push({stufe:stufeStr(aktuell.stufe),von:von,bis:abis||null,ent:flag(aktuell.ent)});
     }
     raw.sort(function(a,b){return a.von-b.von});
     var out=[];
     raw.forEach(function(p){
-      var von=p.von<start?start:p.von;
-      var endeJ=p.bis?p.bis.getFullYear():heute.getFullYear();
       if(p.bis&&p.bis<start)return;
-      function flag(y){var v=ent&&ent[y];return v===undefined||v===null?true:!!v}
-      var seg=[],y0=von.getFullYear();
-      for(var y=y0;y<=endeJ;y++){
-        var f=flag(y),l=seg[seg.length-1];
-        if(l&&l.f===f)l.y1=y;else seg.push({f:f,y0:y,y1:y});
-      }
-      seg.forEach(function(s,i){
-        var sv=i===0?von:mk(s.y0,1,1);
-        var letzte=i===seg.length-1;
-        var sb=letzte?(p.bis||null):mk(s.y1,12,31);
-        out.push({stufe:p.stufe,von:fmt(sv),bis:sb?fmt(sb):'',fortlaufend:!sb,entlastung_genommen:s.f});
-      });
+      var von=p.von<start?start:p.von;
+      out.push({stufe:p.stufe,von:fmt(von),bis:p.bis?fmt(p.bis):'',fortlaufend:!p.bis,entlastung_genommen:p.ent});
     });
     return out;
   }

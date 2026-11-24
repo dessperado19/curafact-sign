@@ -32,7 +32,7 @@
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="cf-aufnahme-druck.js?v=3"></script><script src="kfc.js?v=3"></script><script src="cf-calc.js?v=20"></script><script src="cf-form.js?v=17"></script><script src="cf-sigpad.js?v=1"></script><script src="cf-sig.js?v=17"></script><script src="cf-api.js?v=16"></script><script src="cf-mitarbeiter.js?v=3"></script><script src="cf-rechner.js?v=10"></script>
+<script src="cf-aufnahme-druck.js?v=3"></script><script src="kfc.js?v=4"></script><script src="cf-calc.js?v=20"></script><script src="cf-form.js?v=18"></script><script src="cf-sigpad.js?v=1"></script><script src="cf-sig.js?v=17"></script><script src="cf-api.js?v=16"></script><script src="cf-mitarbeiter.js?v=3"></script><script src="cf-rechner.js?v=11"></script>
 <script>
 function $(id){return document.getElementById(id)}
 var esc=CFC.esc;
@@ -543,18 +543,18 @@ function editNotizenBinden(){
 }
 function editForm(d){
   var pg=CFForm.pflegegradHtml(d);
-  return '<form class="cfPanel kf" id="kfRoot" onsubmit="return false"><div class="wizardSteps"><span data-jump="e1">1 Person</span><span data-jump="e2">2 Pflegegrad</span><span data-jump="e3">3 Entlastung</span><span data-jump="e4">4 Pflegeperson</span><span data-jump="e5">5 Nachbarschaftshilfe</span><span data-jump="e6">6 Verhinderungspflege</span><span data-jump="e7">7 Notizen</span><span data-jump="e8">8 Unterschriften</span><span data-jump="e9">9 Berechnung</span></div>'+
+  return '<form class="cfPanel kf" id="kfRoot" onsubmit="return false"><div class="wizardSteps"><span data-jump="e1">1 Person</span><span data-jump="e2">2 Pflegegrad</span><span data-jump="e4">3 Pflegeperson</span><span data-jump="e5">4 Nachbarschaftshilfe</span><span data-jump="e6">5 Verhinderungspflege</span><span data-jump="e7">6 Notizen</span><span data-jump="e8">7 Unterschriften</span><span data-jump="e9">8 Berechnung</span></div>'+
     '<h3 class="kfH" id="e1">1. Pflegebedürftige Person</h3>'+CFForm.personHtml(d,{nameFix:true})+
     '<div class="kfF" style="margin:4px 0 8px"><label style="display:flex;gap:8px;align-items:center;text-transform:none;font-size:14px;color:var(--text)"><input type="checkbox" id="f_beratung"'+(d.pflegeberatung_kunde?' checked':'')+' style="width:auto"> Auch Pflegeberatung (§ 37 Abs. 3)</label><p class="mini">Markiert die Person als Beratungskunde. Studio übernimmt das beim nächsten Start und legt die Akte für das UG-Portal im Ordner Portal_Eingang ab.</p></div>'+
     '<h3 class="kfH" id="e2">2. Pflegegrad</h3>'+pg.html+
-    '<h3 class="kfH" id="e3">3. Entlastungsbetrag (§ 45b SGB XI) <small>– je Jahr</small></h3>'+CFForm.entHtml(d,pg.form)+CFForm.zeitenHtml(d)+
-    '<h3 class="kfH" id="e4">4. Pflegeperson <small>(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)</small></h3>'+CFForm.pflegepersonHtml(d)+
-    '<h3 class="kfH" id="e5">5. Nachbarschaftshilfe</h3>'+helferEditHtml(d)+
-    '<h3 class="kfH" id="e6">6. Verhinderungspflege / Kurzzeitpflege <small>– je Jahr</small></h3>'+CFForm.vpHtml(d)+
-    '<h3 class="kfH" id="e7">7. Zusätzliche Notizen / Informationen</h3><div class="kfF"><textarea id="f_aufnahme_notizen" rows="4" placeholder="z. B. Notizen vom Aufnahmebogen">'+esc(d.aufnahme_notizen||'')+'</textarea></div>'+
+    CFForm.zeitenHtml(d)+
+    '<h3 class="kfH" id="e4">3. Pflegeperson <small>(gesetzliche Vertretung / bevollmächtigte Person, falls abweichend)</small></h3>'+CFForm.pflegepersonHtml(d)+
+    '<h3 class="kfH" id="e5">4. Nachbarschaftshilfe</h3>'+helferEditHtml(d)+
+    '<h3 class="kfH" id="e6">5. Verhinderungspflege / Kurzzeitpflege <small>– je Jahr</small></h3>'+CFForm.vpHtml(d)+
+    '<h3 class="kfH" id="e7">6. Zusätzliche Notizen / Informationen</h3><div class="kfF"><textarea id="f_aufnahme_notizen" rows="4" placeholder="z. B. Notizen vom Aufnahmebogen">'+esc(d.aufnahme_notizen||'')+'</textarea></div>'+
     '<details class="kfDet" open><summary>Notizen im Team (für alle sichtbar)</summary><div id="notesList"><div class="empty">Lade …</div></div><textarea class="cfInput" id="noteText" rows="3" placeholder="z. B. Kunde bittet um Rückruf wegen …" style="margin-top:8px"></textarea><div class="actions" style="margin-top:8px"><button type="button" class="primaryBtn" id="noteBtn">Notiz speichern</button></div></details>'+
-    '<h3 class="kfH" id="e8">8. Unterschriften</h3>'+unterschriftenEditHtml(d)+
-    '<h3 class="kfH" id="e9">9. Berechnung</h3>'+CFForm.abzugHtml(d)+'<div id="editCalc" style="margin-top:10px"></div><div class="actions" style="margin-top:8px"><button type="button" id="editCalcPrint">Berechnung drucken / als PDF</button></div>'+
+    '<h3 class="kfH" id="e8">7. Unterschriften</h3>'+unterschriftenEditHtml(d)+
+    '<h3 class="kfH" id="e9">8. Berechnung</h3>'+CFForm.abzugHtml(d)+'<div id="editCalc" style="margin-top:10px"></div><div class="actions" style="margin-top:8px"><button type="button" id="editCalcPrint">Berechnung drucken / als PDF</button></div>'+
     '<div class="actions kfBar"><button type="button" class="primaryBtn" id="btnSave2">Speichern</button><button type="button" id="btnCancel2">Abbrechen</button><span class="mini kfBarHint" id="kfBarHint">Änderungen werden erst mit „Speichern“ übernommen.</span></div></form>';
 }
 function zeigeAuswertung(){
