@@ -90,7 +90,6 @@ function starteApp(){
   $('whoName').textContent=(CFAPI.user&&CFAPI.user.display_name)||'';
   rechteAnwenden();
   if(CFAPI.darf('kunden'))ladeKunden();
-  if(CFAPI.darf('aufnahmen'))aufnBadgePruefen();
   var wunsch=location.hash==='#rechner'?'rechner':(location.hash==='#aufnahmen'?'aufnahmen':(location.hash==='#mitarbeiter'?'mitarbeiter':startAnsicht()));
   zeigeAnsicht(wunsch);
   /* aktuelle Freigaben vom Server holen (Änderungen durch den Admin wirken so ohne neue Anmeldung) */
@@ -230,7 +229,7 @@ function zeichneAufnahmen(){
     var r=await CFAPI.call('intake_delete',{session:b.dataset.s});if(r&&r.ok)ladeAufnahmen();else alert((r&&r.message)||'Löschen fehlgeschlagen.');
   }});
 }
-/* Zähler im Menü: regelmäßig prüfen, solange die Seite sichtbar ist */
+/* Zähler im Menü: nur noch beim Öffnen der Ansicht „Aufnahmen“ bzw. über „Aktualisieren“ – keine automatische Abfrage mehr (Supabase-Kontingent) */
 async function aufnBadgePruefen(){
   if(document.hidden||!CFAPI||!CFAPI.user||nurEigeneAufn())return;
   var r=await CFAPI.call('intake_list');if(!r||!r.ok)return;
@@ -240,7 +239,6 @@ async function aufnBadgePruefen(){
   aufnBadge();renderListe();
   if(neueAufnahmen().length<vorher)ladeKunden();
 }
-setInterval(aufnBadgePruefen,60000);
 async function aufnAnsehen(session){
   var el=$('aufnDetail');el.innerHTML='<div class="empty">Lade …</div>';
   var r=await CFAPI.call('intake_get',{session:session});
